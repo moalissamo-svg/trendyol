@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ترنديول - منصة الاستثمار</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a1628;
+  --bg2: #0f1e35;
+  --bg3: #162640;
+  --gold: #d4a94a;
+  --gold2: #f0c96a;
+  --brown: #8b5e2a;
+  --green: #22c55e;
+  --red: #ef4444;
+  --text: #e2d5b8;
+  --text2: #8a7a5a;
+  --border: rgba(212,169,74,0.2);
+  --card: rgba(15,30,53,0.95);
+}
+body { font-family: 'Tajawal', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* BG */
+.bg-grad { position: fixed; inset: 0; z-index: 0; background: radial-gradient(ellipse at 20% 20%, rgba(139,94,42,0.15) 0%, transparent 60%), radial-gradient(ellipse at 80% 80%, rgba(10,22,40,0.8) 0%, transparent 60%), var(--bg); pointer-events: none; }
+
+/* LOAD */
+#loader { position: fixed; inset: 0; z-index: 9999; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; transition: opacity 0.5s; }
+#loader.hide { opacity: 0; pointer-events: none; }
+.loader-logo { font-size: 2.8rem; font-weight: 900; background: linear-gradient(135deg, var(--brown), var(--gold2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.loader-bar { width: 200px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+.loader-fill { height: 100%; background: linear-gradient(90deg, var(--brown), var(--gold)); animation: fillBar 2s ease forwards; }
+@keyframes fillBar { to { width: 100%; } }
+
+/* NAVBAR */
+nav { position: fixed; top: 0; left: 0; right: 0; z-index: 200; height: 60px; background: rgba(10,22,40,0.95); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 1.2rem; backdrop-filter: blur(15px); }
+.nav-logo { font-size: 1.4rem; font-weight: 900; background: linear-gradient(135deg, var(--brown), var(--gold2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; cursor: pointer; }
+.nav-right { display: flex; align-items: center; gap: 0.5rem; }
+
+/* BELL */
+.bell-btn { position: relative; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.6rem; cursor: pointer; font-size: 1.1rem; transition: all 0.2s; }
+.bell-btn:hover { background: rgba(212,169,74,0.15); }
+.bell-badge { position: absolute; top: -5px; right: -5px; background: var(--red); color: #fff; border-radius: 50%; width: 16px; height: 16px; font-size: 0.6rem; font-weight: 800; display: none; align-items: center; justify-content: center; }
+.bell-badge.on { display: flex; }
+
+/* NOTIF PANEL */
+.notif-panel { position: fixed; top: 65px; left: 10px; width: 290px; background: var(--bg3); border: 1px solid var(--border); border-radius: 14px; z-index: 300; display: none; box-shadow: 0 10px 40px rgba(0,0,0,0.6); max-height: 360px; flex-direction: column; }
+.notif-panel.open { display: flex; animation: popIn 0.2s ease; }
+@keyframes popIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.np-header { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.np-title { font-weight: 700; font-size: 0.88rem; }
+.np-clear { font-size: 0.7rem; color: var(--gold); cursor: pointer; }
+.np-body { overflow-y: auto; flex: 1; }
+.np-item { padding: 0.75rem 1rem; border-bottom: 1px solid rgba(212,169,74,0.07); }
+.np-code { font-size: 1.1rem; font-weight: 800; letter-spacing: 4px; color: var(--gold2); font-family: monospace; margin: 0.2rem 0; }
+.np-empty { text-align: center; padding: 2rem; color: var(--text2); font-size: 0.8rem; }
+
+/* CODE POPUP */
+.code-popup { position: fixed; top: 75px; left: 50%; transform: translateX(-50%); z-index: 400; background: var(--bg3); border: 2px solid var(--gold); border-radius: 18px; padding: 1.5rem; text-align: center; min-width: 260px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); display: none; animation: popIn 0.3s ease; }
+.code-popup.show { display: block; }
+.popup-code { font-size: 2rem; font-weight: 900; letter-spacing: 8px; color: var(--gold2); font-family: monospace; background: rgba(10,22,40,0.8); padding: 0.6rem; border-radius: 10px; margin: 0.8rem 0; }
+
+/* BUTTONS */
+.btn { padding: 0.5rem 1.1rem; border: none; cursor: pointer; border-radius: 9px; font-family: 'Tajawal', sans-serif; font-weight: 700; font-size: 0.88rem; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.4rem; }
+.btn-gold { background: linear-gradient(135deg, var(--brown), var(--gold)); color: #0a1628; }
+.btn-gold:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(212,169,74,0.4); }
+.btn-outline { background: transparent; border: 1.5px solid var(--brown); color: var(--gold); }
+.btn-outline:hover { background: rgba(139,94,42,0.15); }
+.btn-gray { background: rgba(255,255,255,0.06); color: var(--text2); border: 1px solid var(--border); }
+.btn-green { background: linear-gradient(135deg, #166534, #22c55e); color: #fff; }
+.btn-red { background: linear-gradient(135deg, #991b1b, #ef4444); color: #fff; }
+.btn-sm { padding: 0.28rem 0.75rem; font-size: 0.75rem; }
+.btn-full { width: 100%; justify-content: center; }
+
+/* PAGES */
+.page { position: relative; z-index: 1; display: none; min-height: 100vh; padding-top: 60px; }
+.page.active { display: block; }
+
+/* LANDING */
+.hero { min-height: calc(100vh - 60px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem 1.5rem; }
+.hero-tag { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.3rem 1rem; border-radius: 50px; background: rgba(139,94,42,0.15); border: 1px solid rgba(212,169,74,0.3); font-size: 0.75rem; color: var(--gold); margin-bottom: 1.8rem; }
+.dot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; animation: blink 2s infinite; }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+.hero h1 { font-size: clamp(1.9rem, 5vw, 3.8rem); font-weight: 900; line-height: 1.15; margin-bottom: 1rem; }
+.hero h1 span { background: linear-gradient(135deg, var(--brown), var(--gold2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: block; }
+.hero p { color: var(--text2); font-size: 0.97rem; max-width: 440px; line-height: 1.8; margin-bottom: 2rem; }
+.hero-btns { display: flex; gap: 0.8rem; flex-wrap: wrap; justify-content: center; margin-bottom: 3rem; }
+.stats-row { display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center; background: rgba(15,30,53,0.8); border: 1px solid var(--border); border-radius: 16px; padding: 1.2rem 2rem; }
+.stat-item { text-align: center; }
+.stat-val { font-size: 1.6rem; font-weight: 900; color: var(--gold2); }
+.stat-lbl { font-size: 0.68rem; color: var(--text2); margin-top: 0.1rem; }
+.features { padding: 3rem 1.5rem; max-width: 1000px; margin: 0 auto; }
+.sec-title { text-align: center; font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, var(--brown), var(--gold2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.4rem; }
+.sec-sub { text-align: center; color: var(--text2); font-size: 0.82rem; margin-bottom: 2rem; }
+.feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+.feat-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1.3rem; transition: all 0.3s; }
+.feat-card:hover { transform: translateY(-4px); border-color: rgba(212,169,74,0.45); }
+.feat-ic { font-size: 1.8rem; margin-bottom: 0.6rem; }
+.feat-t { font-weight: 700; font-size: 0.92rem; margin-bottom: 0.3rem; }
+.feat-p { color: var(--text2); font-size: 0.78rem; line-height: 1.7; }
+footer { background: rgba(5,12,25,0.97); border-top: 1px solid var(--border); padding: 1.5rem; text-align: center; color: var(--text2); font-size: 0.72rem; }
+
+/* AUTH */
+.auth-wrap { min-height: calc(100vh - 60px); display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+.auth-box { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 2rem 1.8rem; width: 100%; max-width: 400px; animation: popIn 0.3s ease; }
+.auth-title { font-size: 1.4rem; font-weight: 800; margin-bottom: 0.25rem; }
+.auth-sub { color: var(--text2); font-size: 0.8rem; margin-bottom: 1.5rem; }
+.field { margin-bottom: 0.85rem; }
+.field label { display: block; font-size: 0.76rem; color: var(--text2); font-weight: 600; margin-bottom: 0.28rem; }
+.field input, .field select { width: 100%; padding: 0.68rem 0.9rem; background: rgba(10,22,40,0.9); border: 1.5px solid var(--border); border-radius: 10px; color: var(--text); font-family: 'Tajawal', sans-serif; font-size: 0.87rem; outline: none; transition: all 0.2s; }
+.field input:focus, .field select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212,169,74,0.12); }
+.field input::placeholder { color: rgba(138,122,90,0.5); }
+.divider { display: flex; align-items: center; gap: 0.8rem; margin: 0.9rem 0; color: var(--text2); font-size: 0.7rem; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.auth-link { text-align: center; margin-top: 0.9rem; color: var(--text2); font-size: 0.78rem; }
+.auth-link a { color: var(--gold); cursor: pointer; font-weight: 700; }
+
+/* DASHBOARD */
+.dash { display: flex; min-height: calc(100vh - 60px); }
+.sidebar { width: 210px; background: rgba(10,22,40,0.98); border-left: 1px solid var(--border); position: fixed; top: 60px; bottom: 0; right: 0; z-index: 80; padding: 0.7rem 0; overflow-y: auto; }
+.sb-lbl { padding: 0.3rem 1rem; font-size: 0.58rem; color: var(--text2); text-transform: uppercase; letter-spacing: 1.8px; }
+.sb-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 1rem; cursor: pointer; transition: all 0.2s; font-size: 0.82rem; font-weight: 600; color: var(--text2); border-right: 3px solid transparent; }
+.sb-item:hover, .sb-item.on { color: var(--gold); background: rgba(139,94,42,0.1); border-right-color: var(--gold); }
+.sb-sep { height: 1px; background: var(--border); margin: 0.5rem 0.8rem; }
+.main { flex: 1; padding: 1.5rem; margin-right: 210px; }
+
+/* CARDS */
+.cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 0.9rem; margin-bottom: 1.3rem; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 13px; padding: 1rem; transition: all 0.25s; }
+.card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+.card-ic { font-size: 1.6rem; margin-bottom: 0.4rem; }
+.card-lbl { font-size: 0.67rem; color: var(--text2); margin-bottom: 0.12rem; }
+.card-val { font-size: 1.45rem; font-weight: 900; color: var(--gold2); }
+.card-sub { font-size: 0.64rem; margin-top: 0.1rem; color: var(--text2); }
+.card-sub.good { color: var(--green); }
+.panel { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1.3rem; margin-bottom: 1.2rem; }
+.panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.panel-title { font-weight: 700; font-size: 0.92rem; }
+
+/* BADGE */
+.badge { display: inline-block; padding: 0.12rem 0.5rem; border-radius: 50px; font-size: 0.64rem; font-weight: 700; }
+.bg { background: rgba(34,197,94,0.12); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+.by { background: rgba(212,169,74,0.12); color: var(--gold2); border: 1px solid rgba(212,169,74,0.25); }
+.br { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.25); }
+.bx { background: rgba(255,255,255,0.06); color: var(--text2); border: 1px solid var(--border); }
+
+/* COUNTDOWN */
+.countdown { background: var(--card); border: 1px solid var(--border); border-radius: 13px; padding: 1rem 1.3rem; margin-bottom: 1.2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.6rem; }
+.cd-times { display: flex; gap: 1.2rem; flex-wrap: wrap; }
+.cd-item { text-align: center; }
+.cd-val { font-size: 1.1rem; font-weight: 800; color: var(--gold2); font-family: monospace; }
+.cd-lbl { font-size: 0.61rem; color: var(--text2); }
+
+/* CODE CARDS */
+.code-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.8rem; }
+.code-card { background: rgba(10,22,40,0.7); border: 1.5px solid var(--border); border-radius: 12px; padding: 1rem; text-align: center; transition: all 0.25s; }
+.code-card.avail { border-color: rgba(212,169,74,0.5); background: rgba(139,94,42,0.1); }
+.code-card.used { opacity: 0.4; }
+.cc-time { font-size: 0.64rem; color: var(--text2); margin-bottom: 0.3rem; }
+.cc-code { font-size: 1.3rem; font-weight: 800; letter-spacing: 5px; color: var(--gold2); font-family: monospace; margin-bottom: 0.3rem; }
+.cc-pct { font-size: 0.7rem; color: var(--green); margin-bottom: 0.5rem; }
+.code-input-row { display: flex; gap: 0.5rem; margin-top: 0.9rem; }
+.code-input-row input { flex: 1; text-align: center; letter-spacing: 4px; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; }
+
+/* TABLE */
+.tbl { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+th { color: var(--text2); font-weight: 700; padding: 0.5rem 0.75rem; text-align: right; border-bottom: 1px solid var(--border); }
+td { padding: 0.6rem 0.75rem; border-bottom: 1px solid rgba(212,169,74,0.06); }
+tr:last-child td { border: none; }
+tr:hover td { background: rgba(212,169,74,0.03); }
+.empty td { text-align: center; color: var(--text2); padding: 2rem; }
+
+/* REFERRAL */
+.ref-box { background: rgba(10,22,40,0.8); border: 1px solid var(--border); border-radius: 9px; padding: 0.5rem 0.8rem; font-size: 0.7rem; color: var(--text2); word-break: break-all; flex: 1; }
+.prog-wrap { background: rgba(10,22,40,0.6); border-radius: 50px; height: 5px; margin-top: 0.6rem; overflow: hidden; }
+.prog { height: 100%; background: linear-gradient(90deg, var(--brown), var(--gold)); border-radius: 50px; transition: width 0.8s ease; }
+
+/* ALERT BOX */
+.alert { display: flex; align-items: flex-start; gap: 0.7rem; border-radius: 12px; padding: 0.75rem 1rem; margin-bottom: 1rem; }
+.alert.warn { background: rgba(212,169,74,0.08); border: 1px solid rgba(212,169,74,0.25); }
+.alert.good { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.25); }
+
+/* MODALS */
+.overlay { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; padding: 1rem; }
+.overlay.open { display: flex; }
+.modal { background: var(--bg3); border: 1px solid var(--border); border-radius: 20px; padding: 1.5rem; width: 100%; max-width: 410px; max-height: 88vh; overflow-y: auto; animation: popIn 0.3s ease; position: relative; }
+.modal-close { position: absolute; top: 0.75rem; left: 0.75rem; background: none; border: none; color: var(--text2); font-size: 1.2rem; cursor: pointer; }
+.modal-close:hover { color: var(--red); }
+.modal-title { font-size: 1.05rem; font-weight: 800; margin-bottom: 1rem; }
+.dep-amounts { display: grid; grid-template-columns: repeat(3,1fr); gap: 0.5rem; margin-bottom: 0.9rem; }
+.dam { background: rgba(10,22,40,0.8); border: 2px solid var(--border); border-radius: 11px; padding: 0.75rem 0.3rem; text-align: center; cursor: pointer; transition: all 0.2s; }
+.dam:hover, .dam.sel { border-color: var(--gold); background: rgba(139,94,42,0.15); }
+.dam-val { font-size: 1rem; font-weight: 800; color: var(--gold2); }
+.dam-bon { font-size: 0.6rem; color: var(--green); margin-top: 0.1rem; }
+.net-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.9rem; }
+.net-btn { background: rgba(10,22,40,0.8); border: 2px solid var(--border); border-radius: 10px; padding: 0.7rem; text-align: center; cursor: pointer; font-size: 0.78rem; font-weight: 700; transition: all 0.2s; }
+.net-btn:hover, .net-btn.sel { border-color: var(--gold); background: rgba(139,94,42,0.15); }
+.wallet-show { background: rgba(10,22,40,0.8); border: 1px solid var(--border); border-radius: 10px; padding: 0.65rem 0.8rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.65rem; }
+.wallet-addr { font-size: 0.68rem; word-break: break-all; color: var(--text2); flex: 1; }
+.info-box { background: rgba(212,169,74,0.07); border: 1px solid rgba(212,169,74,0.22); border-radius: 10px; padding: 0.7rem 0.8rem; margin-bottom: 0.8rem; font-size: 0.76rem; }
+.info-box strong { color: var(--gold2); display: block; margin-bottom: 0.18rem; }
+
+/* TOAST */
+.toasts { position: fixed; bottom: 1.2rem; right: 1.2rem; z-index: 999; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
+.toast { background: rgba(15,30,53,0.99); border: 1px solid var(--border); border-radius: 12px; padding: 0.7rem 1rem; min-width: 230px; display: flex; align-items: center; gap: 0.7rem; animation: slideIn 0.3s ease; pointer-events: all; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+@keyframes slideIn { from { transform: translateX(80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideOut { to { transform: translateX(80px); opacity: 0; } }
+.toast.ok { border-color: rgba(34,197,94,0.35); }
+.toast.err { border-color: rgba(239,68,68,0.35); }
+.toast.info { border-color: rgba(212,169,74,0.35); }
+.toast.code { border-color: rgba(212,169,74,0.6); }
+.toast-t { font-weight: 700; font-size: 0.8rem; }
+.toast-p { color: var(--text2); font-size: 0.7rem; }
+
+/* PROFIT FLY */
+.pfly { position: fixed; pointer-events: none; z-index: 998; font-weight: 800; color: var(--green); font-size: 1.1rem; animation: flyUp 1.5s ease forwards; }
+@keyframes flyUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-70px); } }
+
+/* ADMIN */
+.adm-bar { background: rgba(139,94,42,0.15); border-bottom: 1px solid rgba(212,169,74,0.3); padding: 0.3rem 1.2rem; font-size: 0.7rem; color: var(--gold); text-align: center; }
+.adm-tabs { display: flex; overflow-x: auto; background: rgba(10,22,40,0.98); border-bottom: 1px solid var(--border); position: sticky; top: 60px; z-index: 150; }
+.a-tab { padding: 0.8rem 0.95rem; cursor: pointer; font-size: 0.78rem; font-weight: 700; color: var(--text2); border-bottom: 3px solid transparent; white-space: nowrap; transition: all 0.2s; }
+.a-tab:hover { color: var(--gold); }
+.a-tab.on { color: var(--gold); border-bottom-color: var(--gold); }
+.adm-body { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+.adm-sec { display: none; }
+.adm-sec.on { display: block; }
+.adm-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.8rem; margin-bottom: 1.5rem; }
+.astat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem; text-align: center; }
+.astat-ic { font-size: 1.4rem; margin-bottom: 0.3rem; }
+.astat-lbl { font-size: 0.65rem; color: var(--text2); }
+.astat-val { font-size: 1.3rem; font-weight: 900; color: var(--gold2); }
+.user-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.user-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; background: rgba(10,22,40,0.6); border: 1px solid var(--border); border-radius: 11px; padding: 0.68rem 0.85rem; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--brown), var(--gold)); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.82rem; color: #0a1628; flex-shrink: 0; }
+.u-name { font-weight: 700; font-size: 0.8rem; }
+.u-email { font-size: 0.65rem; color: var(--text2); }
+.u-acts { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-right: auto; }
+.send-box { background: linear-gradient(135deg, rgba(139,94,42,0.2), rgba(212,169,74,0.06)); border: 1.5px solid rgba(212,169,74,0.38); border-radius: 14px; padding: 1.3rem; margin-bottom: 1.1rem; }
+.sched-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 0.8rem; margin-bottom: 1rem; }
+.sched-c { background: rgba(10,22,40,0.7); border: 1.5px solid var(--border); border-radius: 12px; padding: 0.9rem; text-align: center; }
+.sched-t { font-size: 1.4rem; font-weight: 900; color: var(--gold2); font-family: monospace; }
+.sched-l { font-size: 0.67rem; color: var(--text2); margin-top: 0.2rem; }
+.sched-s { margin-top: 0.45rem; }
+.fab { position: fixed; bottom: 1.2rem; left: 1.2rem; z-index: 100; background: linear-gradient(135deg, var(--brown), var(--gold)); color: #0a1628; border: none; border-radius: 50px; padding: 0.6rem 1rem; font-family: 'Tajawal', sans-serif; font-size: 0.8rem; font-weight: 800; cursor: pointer; box-shadow: 0 8px 25px rgba(212,169,74,0.35); display: flex; align-items: center; gap: 0.4rem; transition: all 0.25s; }
+.fab:hover { transform: translateY(-3px); }
+.mt1 { margin-top: 0.5rem; }
+.mt2 { margin-top: 1rem; }
+.hidden { display: none !important; }
+@media (max-width: 768px) { .sidebar { display: none; } .main { margin-right: 0; padding: 1rem; } .sched-cards { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="bg-grad"></div>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-logo">Trendyol</div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+  <div style="font-size:0.73rem;color:var(--text2)">جارٍ الاتصال بالخادم...</div>
+</div>
+
+<!-- TOASTS -->
+<div class="toasts" id="toasts"></div>
+
+<!-- NOTIF PANEL -->
+<div class="notif-panel" id="npanel">
+  <div class="np-header">
+    <div class="np-title">🔔 الإشعارات</div>
+    <div class="np-clear" onclick="clearNotifs()">مسح الكل</div>
+  </div>
+  <div class="np-body" id="npbody"><div class="np-empty">لا توجد إشعارات</div></div>
+</div>
+
+<!-- CODE POPUP -->
+<div class="code-popup" id="codePop">
+  <div style="font-size:2rem;margin-bottom:0.4rem">🎯</div>
+  <div style="font-weight:800;color:var(--gold2);font-size:0.95rem">كود ربح جديد وصلك!</div>
+  <div class="popup-code" id="popCode">——</div>
+  <div style="font-size:0.78rem;color:var(--green);margin-bottom:0.9rem" id="popPct">ربح 1%</div>
+  <button class="btn btn-gold btn-full" onclick="activateFromPopup()">تفعيل الكود الآن</button>
+  <button class="btn btn-gray btn-full mt1" onclick="closePopup()">لاحقاً</button>
+</div>
+
+<!-- NAVBAR -->
+<nav>
+  <div class="nav-logo" onclick="goPage('landing')">Trendyol</div>
+  <div class="nav-right" id="navR">
+    <button class="btn btn-outline btn-sm" onclick="goPage('login')">دخول</button>
+    <button class="btn btn-gold btn-sm" onclick="goPage('register')">ابدأ الآن</button>
+  </div>
+</nav>
+
+<!-- LANDING -->
+<div id="pg-landing" class="page active">
+  <div class="hero">
+    <div class="hero-tag"><span class="dot"></span> منصة موثوقة وآمنة</div>
+    <h1>استثمر بذكاء،<span>اربح يومياً</span></h1>
+    <p>ترنديول تمنحك أكواد ربح يومية حصرية بعوائد حقيقية، مع نظام إحالة يكافئك عند دعوة أصدقائك.</p>
+    <div class="hero-btns">
+      <button class="btn btn-gold" style="padding:0.75rem 1.8rem;font-size:0.95rem;border-radius:12px" onclick="goPage('register')">🚀 ابدأ الاستثمار</button>
+      <button class="btn btn-outline" style="padding:0.75rem 1.8rem;font-size:0.95rem;border-radius:12px" onclick="document.getElementById('feats').scrollIntoView({behavior:'smooth'})">اكتشف المزيد</button>
+    </div>
+    <div class="stats-row">
+      <div class="stat-item"><div class="stat-val" id="st1">0</div><div class="stat-lbl">مستثمر نشط</div></div>
+      <div class="stat-item"><div class="stat-val" id="st2">$0</div><div class="stat-lbl">أرباح موزعة</div></div>
+      <div class="stat-item"><div class="stat-val" id="st3">0</div><div class="stat-lbl">كود مُفعَّل</div></div>
+      <div class="stat-item"><div class="stat-val">98%</div><div class="stat-lbl">رضا العملاء</div></div>
+    </div>
+  </div>
+  <div class="features" id="feats">
+    <div class="sec-title">لماذا ترنديول؟</div>
+    <div class="sec-sub">نظام استثماري متكامل بقاعدة بيانات حقيقية</div>
+    <div class="feat-grid">
+      <div class="feat-card"><div class="feat-ic">🎯</div><div class="feat-t">أكواد ربح يومية</div><div class="feat-p">3 أكواد يومياً تمنحك ربحاً من 1% إلى 1.5% من رصيدك.</div></div>
+      <div class="feat-card"><div class="feat-ic">🔔</div><div class="feat-t">إشعارات فورية</div><div class="feat-p">يصلك إشعار فوري مع الكود داخل الموقع عند إرساله من الإدارة.</div></div>
+      <div class="feat-card"><div class="feat-ic">🎁</div><div class="feat-t">نظام الإحالة</div><div class="feat-p">ادعُ أصدقاءك واحصل على مكافآت تصل إلى $300 وأكواد إضافية.</div></div>
+      <div class="feat-card"><div class="feat-ic">🔐</div><div class="feat-t">أمان كامل</div><div class="feat-p">قاعدة بيانات حقيقية، توثيق KYC، وإدارة كاملة من لوحة التحكم.</div></div>
+      <div class="feat-card"><div class="feat-ic">⚡</div><div class="feat-t">إيداع سريع</div><div class="feat-p">TRC-20 وERC-20 مع مكافأة ترحيب عند أول إيداع.</div></div>
+      <div class="feat-card"><div class="feat-ic">📊</div><div class="feat-t">شفافية تامة</div><div class="feat-p">تتبع أرباحك وعملياتك في الوقت الفعلي مع سجل كامل.</div></div>
+    </div>
+  </div>
+  <footer>© 2024 Trendyol Investment Platform — جميع الحقوق محفوظة</footer>
+</div>
+
+<!-- LOGIN -->
+<div id="pg-login" class="page">
+  <div class="auth-wrap"><div class="auth-box">
+    <div class="auth-title">👋 مرحباً بك</div>
+    <div class="auth-sub">سجّل دخولك للوصول إلى حسابك</div>
+    <div class="field"><label>البريد الإلكتروني</label><input type="email" id="li_email" placeholder="example@email.com"></div>
+    <div class="field"><label>كلمة المرور</label><input type="password" id="li_pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()"></div>
+    <button class="btn btn-gold btn-full mt2" onclick="login()">تسجيل الدخول</button>
+    <div class="auth-link mt2">ليس لديك حساب؟ <a onclick="goPage('register')">سجّل الآن</a></div>
+    <div class="auth-link mt1"><a onclick="goPage('landing')">← الرئيسية</a></div>
+  </div></div>
+</div>
+
+<!-- ADMIN LOGIN -->
+<div id="pg-adminlogin" class="page">
+  <div class="auth-wrap"><div class="auth-box">
+    <div style="text-align:center;font-size:2.2rem;margin-bottom:0.8rem">🔐</div>
+    <div class="auth-title">دخول المسؤول</div>
+    <div class="auth-sub">هذه الصفحة مخصصة للمسؤول فقط</div>
+    <div class="field"><label>كلمة المرور</label><input type="password" id="adm_pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')adminLogin()"></div>
+    <button class="btn btn-gold btn-full mt2" onclick="adminLogin()">🔑 دخول لوحة التحكم</button>
+    <div class="auth-link mt2"><a onclick="goPage('landing')">← الرئيسية</a></div>
+  </div></div>
+</div>
+
+<!-- REGISTER -->
+<div id="pg-register" class="page">
+  <div class="auth-wrap"><div class="auth-box">
+    <div class="auth-title">🚀 حساب جديد</div>
+    <div class="auth-sub">انضم إلى مجتمع ترنديول الاستثماري</div>
+    <div class="field"><label>الاسم الكامل</label><input id="rg_name" placeholder="أحمد محمد"></div>
+    <div class="field"><label>البريد الإلكتروني</label><input type="email" id="rg_email" placeholder="example@email.com"></div>
+    <div class="field"><label>كلمة المرور</label><input type="password" id="rg_pass" placeholder="6 أحرف على الأقل"></div>
+    <div class="field"><label>كود الإحالة (اختياري)</label><input id="rg_ref" placeholder="REF-XXXXXX"></div>
+    <div class="divider">توثيق الهوية — مطلوب</div>
+    <div class="field"><label>رقم الهوية</label><input id="rg_id" placeholder="أدخل رقم هويتك"></div>
+    <button class="btn btn-gold btn-full mt2" onclick="register()">إنشاء الحساب</button>
+    <div class="auth-link mt2">لديك حساب؟ <a onclick="goPage('login')">سجّل الدخول</a></div>
+  </div></div>
+</div>
+
+<!-- USER DASHBOARD -->
+<div id="pg-user" class="page">
+  <div class="dash">
+    <aside class="sidebar">
+      <div class="sb-lbl">الرئيسية</div>
+      <div class="sb-item on" data-s="home">🏠 لوحة التحكم</div>
+      <div class="sb-item" data-s="codes">🎯 أكوادي</div>
+      <div class="sb-item" data-s="wallet">💳 المحفظة</div>
+      <div class="sb-item" data-s="referral">👥 الإحالات</div>
+      <div class="sb-item" data-s="history">📊 السجل</div>
+      <div class="sb-sep"></div>
+      <div class="sb-item" data-s="kyc">🪪 التوثيق</div>
+      <div class="sb-item" onclick="openM('m_support')">💬 الدعم</div>
+      <div class="sb-sep"></div>
+      <div class="sb-item" style="color:var(--red)" onclick="logout()">🚪 خروج</div>
+    </aside>
+    <main class="main">
+      <!-- KYC ALERT -->
+      <div class="alert warn hidden" id="kyc_alert">
+        <span>⏳</span>
+        <div><div style="font-weight:700;font-size:0.83rem">حسابك قيد المراجعة</div><div style="font-size:0.73rem;color:var(--text2)">سيتم تفعيله بعد مراجعة الهوية</div></div>
+      </div>
+      <!-- HOME -->
+      <section id="s-home" class="usec">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.3rem;flex-wrap:wrap;gap:0.6rem">
+          <div><div style="font-size:1.25rem;font-weight:800">مرحباً، <span id="u_name" style="color:var(--gold2)">—</span> 👋</div><div style="font-size:0.7rem;color:var(--text2)" id="u_time"></div></div>
+          <button class="btn btn-gold btn-sm" onclick="openM('m_deposit')">+ إيداع</button>
+        </div>
+        <div class="cards-row">
+          <div class="card"><div class="card-ic">💰</div><div class="card-lbl">الرصيد الكلي</div><div class="card-val" id="c_bal">$0</div></div>
+          <div class="card"><div class="card-ic">📈</div><div class="card-lbl">رصيد الأرباح</div><div class="card-val" id="c_profit">$0</div><div class="card-sub good">قابل للسحب</div></div>
+          <div class="card"><div class="card-ic">⏳</div><div class="card-lbl">أرباح معلقة</div><div class="card-val" id="c_pend">$0</div></div>
+          <div class="card"><div class="card-ic">🎯</div><div class="card-lbl">أكواد اليوم</div><div class="card-val" id="c_codes">0</div></div>
+        </div>
+        <div class="countdown">
+          <div><div style="font-weight:700;font-size:0.87rem">⏰ مواعيد الأكواد</div><div style="font-size:0.68rem;color:var(--text2)">توقيت تركيا UTC+3</div></div>
+          <div class="cd-times">
+            <div class="cd-item"><div class="cd-val" id="cd1">--:--:--</div><div class="cd-lbl">14:00</div></div>
+            <div class="cd-item"><div class="cd-val" id="cd2">--:--:--</div><div class="cd-lbl">16:00</div></div>
+            <div class="cd-item"><div class="cd-val" id="cd3">--:--:--</div><div class="cd-lbl">20:00</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">🎯 أكواد اليوم</div>
+            <span class="badge by" id="codes_cnt">0 كود</span>
+          </div>
+          <div class="code-grid" id="codes_grid">
+            <div style="grid-column:1/-1;text-align:center;color:var(--text2);font-size:0.8rem;padding:1.2rem">لم تُرسل أكواد بعد — ستصلك إشعار فوري 🔔</div>
+          </div>
+          <div class="code-input-row">
+            <input class="field" style="margin:0" id="code_in" placeholder="أدخل الكود..." maxlength="6" onkeydown="if(event.key==='Enter')useCode()">
+            <button class="btn btn-gold" onclick="useCode()">تفعيل</button>
+          </div>
+        </div>
+        <div class="alert good hidden" id="pend_box">
+          <span>⏳</span>
+          <div><div style="font-weight:700;font-size:0.83rem">ربح معلق: <span id="pend_amt" style="color:var(--gold2)">$0</span></div><div style="font-size:0.73rem;color:var(--text2)">يُضاف خلال: <strong id="pend_tmr" style="color:var(--green)">15:00</strong></div></div>
+        </div>
+      </section>
+      <!-- CODES -->
+      <section id="s-codes" class="usec hidden">
+        <div style="font-size:1.25rem;font-weight:800;margin-bottom:1.2rem">🎯 سجل أكوادي</div>
+        <div class="panel"><div class="tbl"><table><thead><tr><th>الكود</th><th>النسبة</th><th>الربح</th><th>وقت الاستخدام</th><th>الحالة</th></tr></thead><tbody id="codes_hist"><tr class="empty"><td colspan="5">لا توجد أكواد</td></tr></tbody></table></div></div>
+      </section>
+      <!-- WALLET -->
+      <section id="s-wallet" class="usec hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;flex-wrap:wrap;gap:0.5rem"><div style="font-size:1.25rem;font-weight:800">💳 المحفظة</div><div style="display:flex;gap:0.45rem"><button class="btn btn-gold btn-sm" onclick="openM('m_deposit')">+ إيداع</button><button class="btn btn-outline btn-sm" onclick="openM('m_withdraw')">↑ سحب</button></div></div>
+        <div class="cards-row">
+          <div class="card"><div class="card-ic">💰</div><div class="card-lbl">رأس المال</div><div class="card-val" id="w_bal">$0</div></div>
+          <div class="card"><div class="card-ic">💎</div><div class="card-lbl">رصيد الأرباح</div><div class="card-val" id="w_profit">$0</div><div class="card-sub good">قابل للسحب</div></div>
+          <div class="card"><div class="card-ic">🎁</div><div class="card-lbl">المكافآت</div><div class="card-val" id="w_bonus">$0</div></div>
+        </div>
+        <div class="panel"><div class="tbl"><table><thead><tr><th>النوع</th><th>المبلغ</th><th>الشبكة</th><th>التاريخ</th><th>الحالة</th></tr></thead><tbody id="wallet_tbl"><tr class="empty"><td colspan="5">لا توجد عمليات</td></tr></tbody></table></div></div>
+      </section>
+      <!-- REFERRAL -->
+      <section id="s-referral" class="usec hidden">
+        <div style="font-size:1.25rem;font-weight:800;margin-bottom:1.2rem">👥 الإحالات</div>
+        <div class="panel">
+          <div class="panel-title">رابط الإحالة الخاص بك</div>
+          <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.65rem"><div class="ref-box" id="ref_link">—</div><button class="btn btn-gold btn-sm" onclick="copyRef()">نسخ</button></div>
+          <div style="display:flex;gap:1.8rem;margin-top:0.9rem;flex-wrap:wrap">
+            <div><div style="font-size:0.67rem;color:var(--text2)">إجمالي إحالاتي</div><div style="font-size:1.4rem;font-weight:900;color:var(--gold2)" id="ref_cnt">0</div></div>
+            <div><div style="font-size:0.67rem;color:var(--text2)">مستواي</div><div style="font-size:1.4rem;font-weight:900;color:var(--gold2)" id="ref_lv">—</div></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.8rem;margin-bottom:1.2rem">
+          <div class="panel">
+            <div style="font-size:1.7rem;margin-bottom:0.3rem">🥈</div>
+            <div style="font-weight:700;margin-bottom:0.25rem">المستوى الأول</div>
+            <div style="font-size:0.67rem;color:var(--text2)">20 إحالة</div>
+            <div style="color:var(--gold2);font-weight:800;font-size:0.83rem;margin-top:0.3rem">+$100 مكافأة</div>
+            <div style="font-size:0.65rem;color:var(--green)">+ كود إضافي يومياً</div>
+            <div class="prog-wrap"><div class="prog" id="lv1_bar" style="width:0%"></div></div>
+            <div style="font-size:0.62rem;color:var(--text2);margin-top:0.18rem" id="lv1_txt">0/20</div>
+          </div>
+          <div class="panel">
+            <div style="font-size:1.7rem;margin-bottom:0.3rem">🥇</div>
+            <div style="font-weight:700;margin-bottom:0.25rem">المستوى الثاني</div>
+            <div style="font-size:0.67rem;color:var(--text2)">50 إحالة</div>
+            <div style="color:var(--gold2);font-weight:800;font-size:0.83rem;margin-top:0.3rem">+$300 مكافأة</div>
+            <div style="font-size:0.65rem;color:var(--green)">+ كودان إضافيان يومياً</div>
+            <div class="prog-wrap"><div class="prog" id="lv2_bar" style="width:0%"></div></div>
+            <div style="font-size:0.62rem;color:var(--text2);margin-top:0.18rem" id="lv2_txt">0/50</div>
+          </div>
+        </div>
+        <div class="panel"><div class="tbl"><table><thead><tr><th>الاسم</th><th>تاريخ التسجيل</th><th>الحالة</th></tr></thead><tbody id="ref_tbl"><tr class="empty"><td colspan="3">لا توجد إحالات</td></tr></tbody></table></div></div>
+      </section>
+      <!-- HISTORY -->
+      <section id="s-history" class="usec hidden">
+        <div style="font-size:1.25rem;font-weight:800;margin-bottom:1.2rem">📊 سجل العمليات</div>
+        <div class="panel"><div class="tbl"><table><thead><tr><th>النوع</th><th>المبلغ</th><th>التاريخ</th><th>الحالة</th></tr></thead><tbody id="hist_tbl"><tr class="empty"><td colspan="4">لا توجد عمليات</td></tr></tbody></table></div></div>
+      </section>
+      <!-- KYC -->
+      <section id="s-kyc" class="usec hidden">
+        <div style="font-size:1.25rem;font-weight:800;margin-bottom:1.2rem">🪪 توثيق الهوية</div>
+        <div class="panel"><table><tbody>
+          <tr><td style="color:var(--text2);padding:0.6rem 0.75rem">رقم الهوية</td><td style="color:var(--gold2);font-weight:700;padding:0.6rem 0.75rem" id="kyc_num">—</td></tr>
+          <tr><td style="color:var(--text2);padding:0.6rem 0.75rem">الحالة</td><td style="padding:0.6rem 0.75rem" id="kyc_st"><span class="badge by">قيد المراجعة</span></td></tr>
+        </tbody></table></div>
+      </section>
+    </main>
+  </div>
+  <button class="fab" onclick="openM('m_support')">💬 الدعم</button>
+</div>
+
+<!-- ADMIN -->
+<div id="pg-admin" class="page">
+  <div class="adm-bar">🔐 لوحة تحكم المسؤول — ترنديول</div>
+  <div class="adm-tabs" id="admtabs">
+    <div class="a-tab on" data-t="stats">📊 الإحصائيات</div>
+    <div class="a-tab" data-t="sendcode">🎯 إرسال الأكواد</div>
+    <div class="a-tab" data-t="users">👥 المستخدمون</div>
+    <div class="a-tab" data-t="deposits">💰 الإيداعات</div>
+    <div class="a-tab" data-t="withdrawals">💸 السحوبات</div>
+    <div class="a-tab" data-t="kyc">🪪 التوثيق</div>
+    <div class="a-tab" data-t="settings">⚙️ الإعدادات</div>
+    <div style="margin-right:auto;display:flex;align-items:center;padding:0 0.6rem"><button class="btn btn-gray btn-sm" onclick="logout()">خروج</button></div>
+  </div>
+  <div class="adm-body">
+    <div id="at-stats" class="adm-sec on">
+      <div class="adm-stats">
+        <div class="astat"><div class="astat-ic">👥</div><div class="astat-lbl">المستخدمون</div><div class="astat-val" id="a_users">0</div></div>
+        <div class="astat"><div class="astat-ic">✅</div><div class="astat-lbl">نشطون</div><div class="astat-val" id="a_active">0</div></div>
+        <div class="astat"><div class="astat-ic">💰</div><div class="astat-lbl">إجمالي الإيداعات</div><div class="astat-val" id="a_tdep">$0</div></div>
+        <div class="astat"><div class="astat-ic">💸</div><div class="astat-lbl">إجمالي السحوبات</div><div class="astat-val" id="a_twd">$0</div></div>
+        <div class="astat"><div class="astat-ic">⏳</div><div class="astat-lbl">طلبات معلقة</div><div class="astat-val" id="a_pend">0</div></div>
+        <div class="astat"><div class="astat-ic">🎯</div><div class="astat-lbl">أكواد اليوم</div><div class="astat-val" id="a_codes">0</div></div>
+      </div>
+    </div>
+    <div id="at-sendcode" class="adm-sec">
+      <div class="send-box">
+        <div style="font-size:0.95rem;font-weight:800;color:var(--gold2);margin-bottom:0.9rem">📤 إرسال كود ربح جديد</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.85rem;margin-bottom:0.9rem">
+          <div class="field"><label>إرسال إلى</label><select id="code_target"><option value="all">🌍 جميع المستخدمين النشطين</option></select></div>
+          <div class="field"><label>نسبة الربح</label><select id="code_pct"><option value="rnd">عشوائي (1% أو 1.5%)</option><option value="1">1% ثابت</option><option value="1.5">1.5% ثابت</option></select></div>
+          <div class="field"><label>كود مخصص (اختياري)</label><input id="custom_code" placeholder="فارغ = تلقائي" maxlength="6" style="text-transform:uppercase"></div>
+        </div>
+        <button class="btn btn-gold btn-full" onclick="sendCode()">📤 إرسال الآن + إشعار فوري للمشتركين 🔔</button>
+        <div id="sent_box" class="hidden" style="margin-top:0.85rem;background:rgba(10,22,40,0.8);border:1px solid var(--border);border-radius:11px;padding:0.85rem;text-align:center">
+          <div style="font-size:0.67rem;color:var(--text2);margin-bottom:0.25rem">الكود المُرسل</div>
+          <div style="font-size:1.9rem;font-weight:900;letter-spacing:7px;color:var(--gold2);font-family:monospace" id="sent_val">——</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title" style="margin-bottom:0.85rem">📅 جدول الإرسال التلقائي</div>
+        <div class="sched-cards">
+          <div class="sched-c"><div class="sched-t">14:00</div><div class="sched-l">الكود الأول</div><div class="sched-s" id="sc1"><span class="badge bx">في الانتظار</span></div></div>
+          <div class="sched-c"><div class="sched-t">16:00</div><div class="sched-l">الكود الثاني</div><div class="sched-s" id="sc2"><span class="badge bx">في الانتظار</span></div></div>
+          <div class="sched-c"><div class="sched-t">20:00</div><div class="sched-l">الكود الثالث</div><div class="sched-s" id="sc3"><span class="badge bx">في الانتظار</span></div></div>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text2)">⚠️ الإرسال التلقائي يعمل عندما تكون لوحة الأدمن مفتوحة في الأوقات المحددة</div>
+      </div>
+      <div class="panel"><div class="panel-title" style="margin-bottom:0.85rem">سجل الأكواد المُرسلة</div><div class="tbl"><table><thead><tr><th>المستخدم</th><th>الكود</th><th>النسبة</th><th>وقت الإرسال</th><th>الحالة</th></tr></thead><tbody id="codes_log"><tr class="empty"><td colspan="5">لا توجد أكواد</td></tr></tbody></table></div></div>
+    </div>
+    <div id="at-users" class="adm-sec">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.1rem;flex-wrap:wrap;gap:0.6rem"><div style="font-size:1.2rem;font-weight:800">👥 المستخدمون</div><input style="width:190px;padding:0.45rem 0.8rem;background:rgba(10,22,40,0.9);border:1.5px solid var(--border);border-radius:9px;color:var(--text);font-family:'Tajawal',sans-serif;font-size:0.83rem;outline:none" placeholder="بحث..." oninput="loadUsers(this.value)"></div>
+      <div class="user-list" id="adm_users"><div style="text-align:center;padding:2rem;color:var(--text2)">جارٍ التحميل...</div></div>
+    </div>
+    <div id="at-deposits" class="adm-sec">
+      <div style="font-size:1.2rem;font-weight:800;margin-bottom:1rem">💰 الإيداعات</div>
+      <div class="panel" style="margin-bottom:1rem">
+        <div class="panel-title">محافظ الاستلام</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.85rem;margin-top:0.7rem">
+          <div><div style="font-size:0.67rem;color:var(--text2);margin-bottom:0.18rem">TRON TRC-20</div><div class="wallet-show"><div class="wallet-addr" id="adm_tron">لم يُضبط</div><button class="btn btn-outline btn-sm" onclick="editWallet('tron')">تعديل</button></div></div>
+          <div><div style="font-size:0.67rem;color:var(--text2);margin-bottom:0.18rem">Ethereum ERC-20</div><div class="wallet-show"><div class="wallet-addr" id="adm_eth">لم يُضبط</div><button class="btn btn-outline btn-sm" onclick="editWallet('eth')">تعديل</button></div></div>
+        </div>
+      </div>
+      <div class="panel"><div class="tbl"><table><thead><tr><th>المستخدم</th><th>المبلغ</th><th>الشبكة</th><th>التاريخ</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="adm_deps"><tr class="empty"><td colspan="6">لا توجد إيداعات</td></tr></tbody></table></div></div>
+    </div>
+    <div id="at-withdrawals" class="adm-sec">
+      <div style="font-size:1.2rem;font-weight:800;margin-bottom:1rem">💸 السحوبات</div>
+      <div class="panel"><div class="tbl"><table><thead><tr><th>المستخدم</th><th>المبلغ</th><th>بعد الرسوم</th><th>المحفظة</th><th>التاريخ</th><th>إجراء</th></tr></thead><tbody id="adm_wds"><tr class="empty"><td colspan="6">لا توجد طلبات</td></tr></tbody></table></div></div>
+    </div>
+    <div id="at-kyc" class="adm-sec">
+      <div style="font-size:1.2rem;font-weight:800;margin-bottom:1rem">🪪 التوثيق</div>
+      <div class="user-list" id="adm_kyc"><div style="text-align:center;padding:2rem;color:var(--text2)">لا توجد طلبات</div></div>
+    </div>
+    <div id="at-settings" class="adm-sec">
+      <div style="font-size:1.2rem;font-weight:800;margin-bottom:1rem">⚙️ الإعدادات</div>
+      <div class="panel">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1rem">
+          <div class="field"><label>محفظة TRON TRC-20</label><input id="s_tron" placeholder="عنوان محفظة TRON"></div>
+          <div class="field"><label>محفظة Ethereum ERC-20</label><input id="s_eth" placeholder="عنوان محفظة ETH"></div>
+          <div class="field"><label>إيميل الدعم</label><input id="s_email" placeholder="support@trendyol.invest"></div>
+          <div class="field"><label>رسوم السحب (%)</label><input type="number" id="s_fee" value="6"></div>
+          <div class="field"><label>الحد الأدنى للسحب ($)</label><input type="number" id="s_minwd" value="50"></div>
+          <div class="field"><label>كلمة مرور الأدمن الجديدة</label><input type="password" id="s_admpass" placeholder="اتركه فارغاً للإبقاء"></div>
+        </div>
+        <button class="btn btn-gold mt2" onclick="saveSettings()">💾 حفظ الإعدادات</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="overlay" id="m_deposit">
+  <div class="modal"><button class="modal-close" onclick="closeM('m_deposit')">✕</button>
+    <div class="modal-title">💳 إيداع رصيد</div>
+    <div style="font-size:0.74rem;color:var(--text2);margin-bottom:0.6rem">اختر المبلغ</div>
+    <div class="dep-amounts">
+      <div class="dam sel" onclick="selAmt(100,this)"><div class="dam-val">$100</div><div class="dam-bon">🎁 +$15</div></div>
+      <div class="dam" onclick="selAmt(200,this)"><div class="dam-val">$200</div><div class="dam-bon">🎁 +$30</div></div>
+      <div class="dam" onclick="selAmt(500,this)"><div class="dam-val">$500</div><div class="dam-bon">🎁 +$50</div></div>
+    </div>
+    <div style="font-size:0.74rem;color:var(--text2);margin-bottom:0.6rem">اختر الشبكة</div>
+    <div class="net-btns">
+      <div class="net-btn" onclick="selNet('tron',this)">🔵 TRON TRC-20</div>
+      <div class="net-btn" onclick="selNet('eth',this)">💠 Ethereum ERC-20</div>
+    </div>
+    <div id="dep_addr_area" class="hidden">
+      <div style="font-size:0.7rem;color:var(--text2);margin-bottom:0.4rem">أرسل المبلغ إلى هذه المحفظة</div>
+      <div class="wallet-show"><div class="wallet-addr" id="dep_addr">—</div><button class="btn btn-outline btn-sm" onclick="copyWallet()">نسخ</button></div>
+      <div class="info-box"><strong>⚠️ مهم</strong>المبلغ: <span id="dep_amt_note" style="color:var(--gold2);font-weight:700">$100</span> — أرسله بالضبط ثم اضغط تأكيد.</div>
+      <button class="btn btn-gold btn-full" onclick="submitDeposit()">✅ أرسلت — في انتظار التأكيد</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="m_withdraw">
+  <div class="modal"><button class="modal-close" onclick="closeM('m_withdraw')">✕</button>
+    <div class="modal-title">💸 سحب الأرباح</div>
+    <div class="info-box"><strong>رصيد الأرباح المتاح</strong><span style="font-size:1.2rem;font-weight:900;color:var(--gold2)" id="wd_avail">$0</span></div>
+    <div class="field"><label>المبلغ (الحد الأدنى $50)</label><input type="number" id="wd_amt" placeholder="0" oninput="calcFee()"></div>
+    <div class="field"><label>عنوان محفظتك</label><input id="wd_wallet" placeholder="عنوان TRC-20 أو ERC-20"></div>
+    <div class="info-box"><strong>رسوم السحب 6%</strong>ستستلم: <span id="wd_after" style="color:var(--gold2);font-weight:700">$0.00</span></div>
+    <button class="btn btn-gold btn-full mt1" onclick="submitWithdraw()">📤 تقديم طلب السحب</button>
+  </div>
+</div>
+
+<div class="overlay" id="m_support">
+  <div class="modal" style="text-align:center"><button class="modal-close" onclick="closeM('m_support')">✕</button>
+    <div class="modal-title">💬 الدعم الفني</div>
+    <div style="font-size:2.2rem;margin:1rem 0">📧</div>
+    <div style="font-weight:700;margin-bottom:0.4rem">تواصل عبر البريد الإلكتروني</div>
+    <div style="background:rgba(10,22,40,0.8);border:1px solid var(--border);border-radius:10px;padding:0.65rem;font-weight:700;color:var(--gold2);margin:0.85rem 0" id="supp_email">support@trendyol.invest</div>
+    <button class="btn btn-gold" onclick="window.location.href='mailto:'+CFG.email">📨 فتح البريد</button>
+  </div>
+</div>
+
+<script>
+// CONFIG
+var SURL = 'https://hnytoognlhubnopmgfay.supabase.co';
+var SKEY = 'sb_publishable_s28RnLc2XDGcLX2OnrhBUw_sljae1aZ';
+var db = supabase.createClient(SURL, SKEY);
+var CFG = { tron:'', eth:'', email:'support@trendyol.invest', fee:6, minwd:50, admpass:'admin2024' };
+var ME = null, IS_ADM = false, TODAY_CODES = [], NOTIFS = [], UNREAD = 0, RT = null, PEND_INT = null, POPUP_CODE = null;
+
+// INIT
+async function init() {
+  await loadCFG();
+  loadStats();
+  startCD();
+  var p = new URLSearchParams(location.search);
+  if (p.get('admin') === 'trendyol-secret') setTimeout(function(){ goPage('adminlogin'); }, 1800);
+  var r = p.get('ref'); if (r) { var e = document.getElementById('rg_ref'); if(e) e.value = r; }
+  setTimeout(function(){ document.getElementById('loader').classList.add('hide'); }, 2000);
+}
+
+async function loadCFG() {
+  var r = await db.from('settings').select('*').eq('id',1).single();
+  if (r.data) {
+    CFG.tron = r.data.tron_wallet||''; CFG.eth = r.data.eth_wallet||'';
+    CFG.email = r.data.support_email||'support@trendyol.invest';
+    CFG.fee = r.data.withdraw_fee||6; CFG.minwd = r.data.min_withdraw||50;
+    CFG.admpass = r.data.admin_pass||'admin2024';
+  }
+}
+
+async function loadStats() {
+  var u = await db.from('users').select('id',{count:'exact'});
+  var d = await db.from('deposits').select('amount').eq('status','confirmed');
+  var c = await db.from('codes_log').select('id',{count:'exact'}).eq('used',true);
+  var tot = 0; if(d.data) d.data.forEach(function(x){ tot += x.amount; });
+  countUp('st1', u.count||0, ''); countUp('st2', tot, '$'); countUp('st3', c.count||0, '');
+}
+
+// REALTIME — وصول الأكواد فوراً
+function startRT(uid) {
+  if (RT) db.removeChannel(RT);
+  RT = db.channel('rt_'+uid)
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'codes_log', filter:'user_id=eq.'+uid },
+      function(ev) {
+        var c = ev.new;
+        showPopup(c.code, c.profit_pct);
+        addNotif(c.code, c.profit_pct);
+        codeToast(c.code, c.profit_pct);
+        loadCodes().then(renderCodes);
+      })
+    .subscribe();
+}
+
+function showPopup(code, pct) {
+  POPUP_CODE = code;
+  document.getElementById('popCode').textContent = code;
+  document.getElementById('popPct').textContent = 'ربح ' + pct + '%';
+  document.getElementById('codePop').classList.add('show');
+  setTimeout(closePopup, 30000);
+}
+
+function closePopup() {
+  document.getElementById('codePop').classList.remove('show');
+  POPUP_CODE = null;
+}
+
+function activateFromPopup() {
+  if (POPUP_CODE) {
+    document.getElementById('code_in').value = POPUP_CODE;
+    closePopup();
+    useCode();
+  }
+}
+
+function codeToast(code, pct) {
+  var el = mkToast('code', '🎯', 'كود ربح جديد!', code + ' — ' + pct + '%');
+  setTimeout(function(){ el.style.animation='slideOut 0.3s ease forwards'; setTimeout(function(){ el.remove(); },300); }, 9000);
+}
+
+function addNotif(code, pct) {
+  NOTIFS.unshift({ code:code, pct:pct, time:new Date() });
+  UNREAD++;
+  var b = document.querySelector('.bell-badge'); if(b){ b.textContent=UNREAD; b.classList.add('on'); }
+  renderNP();
+}
+
+function renderNP() {
+  var b = document.getElementById('npbody');
+  if (!NOTIFS.length) { b.innerHTML='<div class="np-empty">لا توجد إشعارات</div>'; return; }
+  b.innerHTML = NOTIFS.slice(0,15).map(function(n){
+    return '<div class="np-item"><div style="font-size:0.77rem;font-weight:600;margin-bottom:0.18rem">🎯 كود ربح جديد</div><div class="np-code">'+n.code+'</div><div style="font-size:0.7rem;color:var(--green)">ربح '+n.pct+'%</div><div style="font-size:0.63rem;color:var(--text2);margin-top:0.12rem">'+fmt(n.time)+'</div></div>';
+  }).join('');
+}
+
+function clearNotifs() {
+  NOTIFS=[]; UNREAD=0;
+  var b=document.querySelector('.bell-badge'); if(b){ b.textContent='0'; b.classList.remove('on'); }
+  renderNP();
+}
+
+function toggleNP() {
+  var p=document.getElementById('npanel'); p.classList.toggle('open');
+  if (p.classList.contains('open')) { UNREAD=0; var b=document.querySelector('.bell-badge'); if(b){ b.textContent='0'; b.classList.remove('on'); } }
+}
+
+document.addEventListener('click', function(e){
+  var p=document.getElementById('npanel'), b=document.querySelector('.bell-btn');
+  if(p && b && !p.contains(e.target) && !b.contains(e.target)) p.classList.remove('open');
+});
+
+// PAGES
+function goPage(name) {
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  var pg = document.getElementById('pg-'+name); if(pg) pg.classList.add('active');
+  updateNav(name);
+  if (name==='user') renderAll();
+  if (name==='admin') renderAdmin();
+  window.scrollTo(0,0);
+}
+
+function updateNav(page) {
+  var n = document.getElementById('navR');
+  if (page==='user' && ME) {
+    n.innerHTML = '<div class="bell-btn" onclick="toggleNP()">🔔<span class="bell-badge" id="bbadge">0</span></div>' +
+      '<span style="color:var(--text2);font-size:0.76rem">👤 <strong style="color:var(--gold)">'+ME.name+'</strong></span>' +
+      '<button class="btn btn-outline btn-sm" onclick="openM(\'m_deposit\')">+ إيداع</button>' +
+      '<button class="btn btn-gray btn-sm" onclick="logout()">خروج</button>';
+  } else if (page==='admin') {
+    n.innerHTML = '<span class="badge bg">🔐 المسؤول</span><button class="btn btn-gray btn-sm" onclick="logout()">خروج</button>';
+  } else {
+    n.innerHTML = '<button class="btn btn-outline btn-sm" onclick="goPage(\'login\')">دخول</button><button class="btn btn-gold btn-sm" onclick="goPage(\'register\')">ابدأ الآن</button>';
+  }
+}
+
+// AUTH
+async function login() {
+  var email=document.getElementById('li_email').value.trim(), pass=document.getElementById('li_pass').value;
+  if(!email||!pass){ toast('err','خطأ','أدخل البريد وكلمة المرور'); return; }
+  var r = await db.from('users').select('*').eq('email',email).eq('password',pass).single();
+  if(r.error||!r.data){ toast('err','خطأ','البريد أو كلمة المرور غير صحيحة'); return; }
+  ME=r.data; IS_ADM=false;
+  toast('ok','مرحباً بك 👋','تم تسجيل الدخول');
+  setTimeout(function(){ goPage('user'); }, 500);
+}
+
+async function adminLogin() {
+  var pass = document.getElementById('adm_pass').value;
+  if(!pass){ toast('err','خطأ','أدخل كلمة المرور'); return; }
+  await loadCFG();
+  if(pass!==CFG.admpass){ toast('err','خطأ','كلمة المرور غير صحيحة'); return; }
+  IS_ADM=true; ME=null;
+  toast('ok','مرحباً 🔐','');
+  setTimeout(function(){ goPage('admin'); }, 500);
+}
+
+async function register() {
+  var name=document.getElementById('rg_name').value.trim(), email=document.getElementById('rg_email').value.trim(),
+      pass=document.getElementById('rg_pass').value, ref=document.getElementById('rg_ref').value.trim(),
+      idNum=document.getElementById('rg_id').value.trim();
+  if(!name||!email||!pass||!idNum){ toast('err','بيانات ناقصة','أكمل جميع الحقول'); return; }
+  if(pass.length<6){ toast('err','كلمة مرور ضعيفة','6 أحرف على الأقل'); return; }
+  var ex=await db.from('users').select('id').eq('email',email).single();
+  if(ex.data){ toast('err','خطأ','البريد مسجّل مسبقاً'); return; }
+  var refBy=null;
+  if(ref){ var ru=await db.from('users').select('id').eq('ref_code',ref).single(); if(ru.data) refBy=ru.data.id; }
+  var myRef='REF'+Math.random().toString(36).substr(2,6).toUpperCase();
+  var r=await db.from('users').insert([{name,email,password:pass,kyc_id:idNum,kyc_status:'pending',status:'pending',balance:0,profit_bal:0,pending_profit:0,bonus:0,first_dep:false,ref_code:myRef,ref_by:refBy,refs_count:0,ref_level:0,join_date:new Date().toISOString()}]).select().single();
+  if(r.error){ toast('err','خطأ',r.error.message); return; }
+  if(refBy){
+    var ru2=await db.from('users').select('refs_count,ref_level,bonus').eq('id',refBy).single();
+    var nc=(ru2.data?.refs_count||0)+1;
+    var upd={refs_count:nc};
+    if(nc>=50&&(ru2.data?.ref_level||0)<2){ upd.ref_level=2; upd.bonus=(ru2.data?.bonus||0)+300; }
+    else if(nc>=20&&(ru2.data?.ref_level||0)<1){ upd.ref_level=1; upd.bonus=(ru2.data?.bonus||0)+100; }
+    await db.from('users').update(upd).eq('id',refBy);
+  }
+  ME=r.data; IS_ADM=false;
+  toast('ok','تم إنشاء الحساب 🎉','بياناتك قيد المراجعة');
+  setTimeout(function(){ goPage('user'); }, 600);
+}
+
+function logout() {
+  if(RT) db.removeChannel(RT);
+  ME=null; IS_ADM=false;
+  toast('info','تم الخروج','إلى اللقاء 👋');
+  setTimeout(function(){ goPage('landing'); }, 400);
+}
+
+// USER RENDER
+async function renderAll() {
+  if(!ME) return;
+  var r=await db.from('users').select('*').eq('id',ME.id).single(); if(r.data) ME=r.data;
+  document.getElementById('u_name').textContent=ME.name;
+  document.getElementById('kyc_num').textContent=ME.kyc_id||'—';
+  document.getElementById('wd_avail').textContent='$'+(ME.profit_bal||0).toFixed(2);
+  var ka=document.getElementById('kyc_alert');
+  if(ME.kyc_status==='approved'){ ka.classList.add('hidden'); document.getElementById('kyc_st').innerHTML='<span class="badge bg">موثّق ✓</span>'; }
+  else ka.classList.remove('hidden');
+  document.getElementById('ref_link').textContent=location.origin+location.pathname+'?ref='+ME.ref_code;
+  renderCards2(); await loadCodes(); renderCodes(); renderWalletTab(); renderRefTab(); renderHistTab();
+  startRT(ME.id);
+}
+
+function renderCards2() {
+  document.getElementById('c_bal').textContent='$'+((ME.balance||0)+(ME.profit_bal||0)).toFixed(2);
+  document.getElementById('c_profit').textContent='$'+(ME.profit_bal||0).toFixed(2);
+  document.getElementById('c_pend').textContent='$'+(ME.pending_profit||0).toFixed(2);
+  document.getElementById('w_bal').textContent='$'+(ME.balance||0).toFixed(2);
+  document.getElementById('w_profit').textContent='$'+(ME.profit_bal||0).toFixed(2);
+  document.getElementById('w_bonus').textContent='$'+(ME.bonus||0).toFixed(2);
+}
+
+async function loadCodes() {
+  var today=new Date().toISOString().split('T')[0];
+  var r=await db.from('codes_log').select('*').eq('user_id',ME.id).gte('created_at',today+'T00:00:00').order('created_at');
+  TODAY_CODES=r.data||[];
+  document.getElementById('c_codes').textContent=TODAY_CODES.length;
+  document.getElementById('codes_cnt').textContent=TODAY_CODES.length+' كود';
+}
+
+function renderCodes() {
+  var g=document.getElementById('codes_grid');
+  if(!TODAY_CODES.length){ g.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--text2);font-size:0.8rem;padding:1.2rem">لم تُرسل أكواد بعد — ستصلك إشعار فوري 🔔</div>'; return; }
+  g.innerHTML=TODAY_CODES.map(function(c){
+    return '<div class="code-card '+(c.used?'used':'avail')+'">'+
+      '<div class="cc-time">'+fmt(c.created_at)+'</div>'+
+      '<div class="cc-code">'+(c.used?'✓ ✓ ✓':c.code)+'</div>'+
+      '<div class="cc-pct">ربح '+c.profit_pct+'%</div>'+
+      '<span class="badge '+(c.used?'bg':'by')+'">'+(c.used?'مُستخدم':'متاح')+'</span></div>';
+  }).join('');
+}
+
+async function renderWalletTab() {
+  var r=await db.from('transactions').select('*').eq('user_id',ME.id).order('created_at',{ascending:false}).limit(20);
+  var txs=r.data||[];
+  document.getElementById('wallet_tbl').innerHTML=txs.length?txs.map(function(t){
+    return '<tr><td>'+t.type+'</td><td style="color:var(--gold2);font-weight:700">$'+t.amount+'</td><td>'+(t.network||'—')+'</td><td>'+fmt(t.created_at)+'</td><td><span class="badge '+stb(t.status)+'">'+t.status+'</span></td></tr>';
+  }).join(''):'<tr class="empty"><td colspan="5">لا توجد عمليات</td></tr>';
+}
+
+async function renderRefTab() {
+  var cnt=ME.refs_count||0;
+  document.getElementById('ref_cnt').textContent=cnt;
+  document.getElementById('ref_lv').textContent=cnt>=50?'🥇 الثاني':cnt>=20?'🥈 الأول':'—';
+  document.getElementById('lv1_bar').style.width=Math.min(cnt/20*100,100)+'%';
+  document.getElementById('lv2_bar').style.width=Math.min(cnt/50*100,100)+'%';
+  document.getElementById('lv1_txt').textContent=cnt+'/20';
+  document.getElementById('lv2_txt').textContent=cnt+'/50';
+  var r=await db.from('users').select('name,join_date,status').eq('ref_by',ME.id).limit(20);
+  var refs=r.data||[];
+  document.getElementById('ref_tbl').innerHTML=refs.length?refs.map(function(u){
+    return '<tr><td>'+u.name+'</td><td>'+fmt(u.join_date)+'</td><td><span class="badge '+(u.status==='active'?'bg':'by')+'">'+(u.status==='active'?'نشط':'معلق')+'</span></td></tr>';
+  }).join(''):'<tr class="empty"><td colspan="3">لا توجد إحالات</td></tr>';
+}
+
+async function renderHistTab() {
+  var r=await db.from('transactions').select('*').eq('user_id',ME.id).order('created_at',{ascending:false}).limit(30);
+  var txs=r.data||[];
+  document.getElementById('hist_tbl').innerHTML=txs.length?txs.map(function(t){
+    return '<tr><td>'+t.type+'</td><td style="color:var(--gold2);font-weight:700">$'+t.amount+'</td><td>'+fmt(t.created_at)+'</td><td><span class="badge '+stb(t.status)+'">'+t.status+'</span></td></tr>';
+  }).join(''):'<tr class="empty"><td colspan="4">لا توجد عمليات</td></tr>';
+}
+
+async function renderCodesHist() {
+  if(!ME) return;
+  var r=await db.from('codes_log').select('*').eq('user_id',ME.id).eq('used',true).order('used_at',{ascending:false});
+  var codes=r.data||[]; var bal=ME.balance||0;
+  document.getElementById('codes_hist').innerHTML=codes.length?codes.map(function(c){
+    return '<tr><td style="font-family:monospace;color:var(--gold2);font-weight:700">'+c.code+'</td><td>'+c.profit_pct+'%</td><td style="color:var(--green);font-weight:700">$'+(bal*c.profit_pct/100).toFixed(2)+'</td><td>'+fmt(c.used_at)+'</td><td><span class="badge bg">مكتمل</span></td></tr>';
+  }).join(''):'<tr class="empty"><td colspan="5">لا توجد أكواد</td></tr>';
+}
+
+// USE CODE
+async function useCode() {
+  var val=document.getElementById('code_in').value.trim().toUpperCase();
+  if(!val){ toast('err','خطأ','أدخل الكود'); return; }
+  if(!ME||ME.kyc_status!=='approved'){ toast('err','غير مفعّل','يجب توثيق حسابك أولاً'); return; }
+  if((ME.balance||0)===0){ toast('err','لا رصيد','يجب إيداع رصيد أولاً'); return; }
+  var code=TODAY_CODES.find(function(c){ return c.code===val && !c.used; });
+  if(!code){ toast('err','كود خاطئ','الكود غير موجود أو مستخدم مسبقاً'); return; }
+  var profit=(ME.balance||0)*code.profit_pct/100;
+  await db.from('codes_log').update({used:true,used_at:new Date().toISOString()}).eq('id',code.id);
+  await db.from('users').update({pending_profit:(ME.pending_profit||0)+profit}).eq('id',ME.id);
+  await db.from('transactions').insert([{user_id:ME.id,type:'كود ربح',amount:profit.toFixed(2),network:'—',status:'معلق',code_used:val,created_at:new Date().toISOString()}]);
+  document.getElementById('code_in').value='';
+  flyProfit('+$'+profit.toFixed(2));
+  toast('ok','كود صحيح ✅','ربح $'+profit.toFixed(2)+' — يُضاف خلال 15 دقيقة');
+  startPend(profit); await renderAll();
+}
+
+function startPend(profit) {
+  document.getElementById('pend_box').classList.remove('hidden');
+  document.getElementById('pend_amt').textContent='$'+profit.toFixed(2);
+  var secs=900; clearInterval(PEND_INT);
+  PEND_INT=setInterval(async function(){
+    secs--;
+    var m=Math.floor(secs/60).toString().padStart(2,'0'), s=(secs%60).toString().padStart(2,'0');
+    var el=document.getElementById('pend_tmr'); if(el) el.textContent=m+':'+s;
+    if(secs<=0){
+      clearInterval(PEND_INT);
+      var fr=await db.from('users').select('profit_bal,pending_profit').eq('id',ME.id).single();
+      var np=(fr.data?.profit_bal||0)+(fr.data?.pending_profit||0);
+      await db.from('users').update({profit_bal:np,pending_profit:0}).eq('id',ME.id);
+      await db.from('transactions').update({status:'مكتمل'}).eq('user_id',ME.id).eq('status','معلق').eq('type','كود ربح');
+      toast('ok','🎉 الأرباح وصلت!','تمت إضافة الأرباح لمحفظتك');
+      document.getElementById('pend_box').classList.add('hidden');
+      renderAll();
+    }
+  },1000);
+}
+
+// DEPOSIT
+var D_AMT=100, D_NET='tron';
+function selAmt(a,el){ D_AMT=a; document.querySelectorAll('.dam').forEach(function(o){ o.classList.remove('sel'); }); el.classList.add('sel'); document.getElementById('dep_amt_note').textContent='$'+a; }
+function selNet(n,el){ D_NET=n; document.querySelectorAll('.net-btn').forEach(function(o){ o.classList.remove('sel'); }); el.classList.add('sel'); var addr=n==='tron'?CFG.tron:CFG.eth; document.getElementById('dep_addr').textContent=addr||'لم يُضبط — أضف المحفظة من الإعدادات'; document.getElementById('dep_amt_note').textContent='$'+D_AMT; document.getElementById('dep_addr_area').classList.remove('hidden'); }
+function copyWallet(){ navigator.clipboard.writeText(document.getElementById('dep_addr').textContent); toast('info','تم النسخ',''); }
+async function submitDeposit(){
+  if(!ME) return;
+  await db.from('deposits').insert([{user_id:ME.id,user_name:ME.name,amount:D_AMT,network:D_NET.toUpperCase(),status:'pending',created_at:new Date().toISOString()}]);
+  await db.from('transactions').insert([{user_id:ME.id,type:'إيداع',amount:D_AMT,network:D_NET.toUpperCase(),status:'معلق',created_at:new Date().toISOString()}]);
+  closeM('m_deposit'); toast('ok','طلب إيداع مُرسل ✅','في انتظار تأكيد الإدارة');
+}
+
+// WITHDRAW
+function calcFee(){ var a=parseFloat(document.getElementById('wd_amt').value)||0; document.getElementById('wd_after').textContent='$'+(a*(1-CFG.fee/100)).toFixed(2); }
+async function submitWithdraw(){
+  if(!ME) return;
+  var amt=parseFloat(document.getElementById('wd_amt').value), wallet=document.getElementById('wd_wallet').value.trim();
+  if(!amt||amt<CFG.minwd){ toast('err','خطأ','الحد الأدنى $'+CFG.minwd); return; }
+  if(amt>(ME.profit_bal||0)){ toast('err','رصيد غير كافٍ',''); return; }
+  if(!wallet){ toast('err','خطأ','أدخل عنوان المحفظة'); return; }
+  await db.from('users').update({profit_bal:(ME.profit_bal||0)-amt}).eq('id',ME.id);
+  await db.from('withdrawals').insert([{user_id:ME.id,user_name:ME.name,amount:amt,wallet:wallet,status:'pending',created_at:new Date().toISOString()}]);
+  await db.from('transactions').insert([{user_id:ME.id,type:'سحب',amount:amt,network:'—',status:'معلق',created_at:new Date().toISOString()}]);
+  closeM('m_withdraw'); toast('ok','طلب سحب مُرسل','في انتظار موافقة الإدارة'); renderAll();
+}
+
+// ADMIN
+async function renderAdmin(){
+  await loadCFG();
+  ['s_tron','s_eth','s_email','s_fee','s_minwd'].forEach(function(id){
+    var el=document.getElementById(id); if(!el) return;
+    if(id==='s_tron') el.value=CFG.tron||'';
+    else if(id==='s_eth') el.value=CFG.eth||'';
+    else if(id==='s_email') el.value=CFG.email||'';
+    else if(id==='s_fee') el.value=CFG.fee||6;
+    else if(id==='s_minwd') el.value=CFG.minwd||50;
+  });
+  document.getElementById('adm_tron').textContent=CFG.tron||'لم يُضبط';
+  document.getElementById('adm_eth').textContent=CFG.eth||'لم يُضبط';
+  document.getElementById('supp_email').textContent=CFG.email;
+  var users=await db.from('users').select('*',{count:'exact'});
+  var deps=await db.from('deposits').select('amount,status');
+  var wds=await db.from('withdrawals').select('amount,status');
+  var codes=await db.from('codes_log').select('id',{count:'exact'}).gte('created_at',new Date().toISOString().split('T')[0]+'T00:00:00');
+  var ac=0,td=0,tw=0,pend=0;
+  if(users.data) users.data.forEach(function(u){ if(u.status==='active') ac++; });
+  if(deps.data) deps.data.forEach(function(d){ if(d.status==='confirmed') td+=d.amount; if(d.status==='pending') pend++; });
+  if(wds.data) wds.data.forEach(function(w){ if(w.status==='approved') tw+=w.amount; if(w.status==='pending') pend++; });
+  document.getElementById('a_users').textContent=users.count||0;
+  document.getElementById('a_active').textContent=ac;
+  document.getElementById('a_tdep').textContent='$'+td;
+  document.getElementById('a_twd').textContent='$'+tw;
+  document.getElementById('a_pend').textContent=pend;
+  document.getElementById('a_codes').textContent=codes.count||0;
+  var sel=document.getElementById('code_target');
+  if(users.data){ sel.innerHTML='<option value="all">🌍 جميع النشطين</option>'+users.data.map(function(u){ return '<option value="'+u.id+'">'+u.name+'</option>'; }).join(''); }
+  loadUsers(); loadDeps(); loadWds(); loadKyc(); loadCodesLog(); checkSched();
+}
+
+async function loadUsers(q){
+  var query=db.from('users').select('*').order('join_date',{ascending:false});
+  if(q) query=query.or('name.ilike.%'+q+'%,email.ilike.%'+q+'%');
+  var r=await query.limit(50); var users=r.data||[];
+  var el=document.getElementById('adm_users');
+  if(!users.length){ el.innerHTML='<div style="text-align:center;padding:2rem;color:var(--text2)">لا يوجد مستخدمون</div>'; return; }
+  el.innerHTML=users.map(function(u){
+    return '<div class="user-row">'+
+      '<div class="avatar">'+u.name[0]+'</div>'+
+      '<div style="flex:1;min-width:90px"><div class="u-name">'+u.name+'</div><div class="u-email">'+u.email+'</div></div>'+
+      '<div style="font-weight:700;color:var(--gold2);font-size:0.79rem">$'+((u.balance||0)+(u.profit_bal||0)).toFixed(2)+'</div>'+
+      '<span class="badge '+(u.status==='active'?'bg':'by')+'">'+(u.status==='active'?'نشط':'معلق')+'</span>'+
+      '<span class="badge '+(u.kyc_status==='approved'?'bg':u.kyc_status==='rejected'?'br':'by')+'">'+(u.kyc_status==='approved'?'موثّق':u.kyc_status==='rejected'?'مرفوض':'مراجعة')+'</span>'+
+      '<div class="u-acts">'+
+        '<button class="btn btn-gold btn-sm" onclick="quickSend(\''+u.id+'\')">إرسال كود</button>'+
+        '<button class="btn btn-sm" style="'+(u.status==='active'?'background:linear-gradient(135deg,#991b1b,#ef4444)':'background:linear-gradient(135deg,#166534,#22c55e)')+';color:#fff;padding:0.28rem 0.75rem;font-size:0.75rem" onclick="toggleUser(\''+u.id+'\',\''+u.status+'\')">'+( u.status==='active'?'تعطيل':'تفعيل')+'</button>'+
+      '</div></div>';
+  }).join('');
+}
+
+async function toggleUser(id,cur){ await db.from('users').update({status:cur==='active'?'suspended':'active'}).eq('id',id); loadUsers(); toast('info','تم',''); }
+
+async function sendCode(){
+  var target=document.getElementById('code_target').value, pctM=document.getElementById('code_pct').value, custom=document.getElementById('custom_code').value.trim().toUpperCase();
+  var inserts=[];
+  if(target==='all'){
+    var r=await db.from('users').select('id').eq('status','active');
+    if(!r.data||!r.data.length){ toast('err','لا يوجد مستخدمون نشطون',''); return; }
+    r.data.forEach(function(u){ var pct=pctM==='rnd'?(Math.random()>0.5?1:1.5):parseFloat(pctM); inserts.push({user_id:u.id,code:custom||mkCode(),profit_pct:pct,used:false,slot:0,created_at:new Date().toISOString()}); });
+    document.getElementById('sent_val').textContent=custom||'مختلف لكل مستخدم';
+  } else {
+    var pct=pctM==='rnd'?(Math.random()>0.5?1:1.5):parseFloat(pctM), code=custom||mkCode();
+    inserts.push({user_id:target,code:code,profit_pct:pct,used:false,slot:0,created_at:new Date().toISOString()});
+    document.getElementById('sent_val').textContent=code;
+  }
+  var r2=await db.from('codes_log').insert(inserts);
+  if(r2.error){ toast('err','خطأ',r2.error.message); return; }
+  document.getElementById('sent_box').classList.remove('hidden');
+  document.getElementById('custom_code').value='';
+  toast('ok','تم الإرسال ✅','وصل الكود للمشتركين مع إشعار فوري 🔔');
+  setTimeout(loadCodesLog, 500);
+}
+
+async function quickSend(uid){
+  var pct=Math.random()>0.5?1:1.5, code=mkCode();
+  await db.from('codes_log').insert([{user_id:uid,code:code,profit_pct:pct,used:false,slot:0,created_at:new Date().toISOString()}]);
+  toast('ok','كود مُرسل ✅',code+' ('+pct+'%)'); loadCodesLog();
+}
+
+async function loadCodesLog(){
+  var r=await db.from('codes_log').select('*').order('created_at',{ascending:false}).limit(40);
+  var codes=r.data||[];
+  var uids=[...new Set(codes.map(function(c){ return c.user_id; }))]; var nm={};
+  if(uids.length){ var ur=await db.from('users').select('id,name').in('id',uids); if(ur.data) ur.data.forEach(function(u){ nm[u.id]=u.name; }); }
+  document.getElementById('codes_log').innerHTML=codes.length?codes.map(function(c){
+    return '<tr><td>'+(nm[c.user_id]||'—')+'</td><td style="font-family:monospace;color:var(--gold2);font-weight:700;letter-spacing:3px">'+c.code+'</td><td>'+c.profit_pct+'%</td><td>'+fmt(c.created_at)+'</td><td><span class="badge '+(c.used?'bg':'by')+'">'+(c.used?'مُستخدم':'لم يُستخدم')+'</span></td></tr>';
+  }).join(''):'<tr class="empty"><td colspan="5">لا توجد أكواد</td></tr>';
+}
+
+async function loadDeps(){
+  var r=await db.from('deposits').select('*').order('created_at',{ascending:false}).limit(50); var deps=r.data||[];
+  document.getElementById('adm_deps').innerHTML=deps.length?deps.map(function(d){
+    return '<tr><td>'+d.user_name+'</td><td style="color:var(--gold2);font-weight:700">$'+d.amount+'</td><td>'+d.network+'</td><td>'+fmt(d.created_at)+'</td><td><span class="badge '+(d.status==='confirmed'?'bg':'by')+'">'+(d.status==='confirmed'?'مؤكد':'معلق')+'</span></td><td>'+
+    (d.status==='pending'?'<button class="btn btn-gold btn-sm" onclick="confirmDep(\''+d.id+'\',\''+d.user_id+'\','+d.amount+')">تأكيد</button>':'<span class="badge bg">مؤكد ✓</span>')+
+    '</td></tr>';
+  }).join(''):'<tr class="empty"><td colspan="6">لا توجد إيداعات</td></tr>';
+}
+
+async function confirmDep(id,uid,amt){
+  await db.from('deposits').update({status:'confirmed'}).eq('id',id);
+  var u=await db.from('users').select('balance,first_dep,bonus').eq('id',uid).single();
+  var nb=(u.data?.balance||0)+amt, upd={balance:nb,status:'active'};
+  if(!u.data?.first_dep){ var bon=amt===100?15:amt===200?30:50; upd.bonus=(u.data?.bonus||0)+bon; upd.first_dep=true; await db.from('transactions').insert([{user_id:uid,type:'مكافأة ترحيب',amount:bon,network:'—',status:'مكتمل',created_at:new Date().toISOString()}]); toast('ok','مكافأة ترحيب','أُضيف $'+bon); }
+  await db.from('users').update(upd).eq('id',uid);
+  await db.from('transactions').update({status:'مؤكد'}).eq('user_id',uid).eq('type','إيداع').eq('status','معلق');
+  toast('ok','تم تأكيد الإيداع ✅','$'+amt+' مضافة'); loadDeps(); renderAdmin();
+}
+
+async function loadWds(){
+  var r=await db.from('withdrawals').select('*').order('created_at',{ascending:false}).limit(50); var wds=r.data||[];
+  document.getElementById('adm_wds').innerHTML=wds.length?wds.map(function(w){
+    return '<tr><td>'+w.user_name+'</td><td style="color:var(--gold2);font-weight:700">$'+w.amount+'</td><td style="color:var(--green)">$'+(w.amount*(1-CFG.fee/100)).toFixed(2)+'</td><td style="font-size:0.65rem;font-family:monospace">'+w.wallet+'</td><td>'+fmt(w.created_at)+'</td><td>'+
+    (w.status==='pending'?'<div style="display:flex;gap:0.25rem"><button class="btn btn-gold btn-sm" onclick="approveWd(\''+w.id+'\')">قبول</button><button class="btn btn-red btn-sm" onclick="rejectWd(\''+w.id+'\',\''+w.user_id+'\','+w.amount+')">رفض</button></div>':'<span class="badge '+(w.status==='approved'?'bg':'br')+'">'+(w.status==='approved'?'مقبول':'مرفوض')+'</span>')+
+    '</td></tr>';
+  }).join(''):'<tr class="empty"><td colspan="6">لا توجد طلبات</td></tr>';
+}
+
+async function approveWd(id){ await db.from('withdrawals').update({status:'approved'}).eq('id',id); loadWds(); toast('ok','تم القبول',''); }
+async function rejectWd(id,uid,amt){ await db.from('withdrawals').update({status:'rejected'}).eq('id',id); var u=await db.from('users').select('profit_bal').eq('id',uid).single(); await db.from('users').update({profit_bal:(u.data?.profit_bal||0)+amt}).eq('id',uid); loadWds(); toast('err','تم الرفض','تم إرجاع المبلغ'); }
+
+async function loadKyc(){
+  var r=await db.from('users').select('*').eq('kyc_status','pending'); var users=r.data||[]; var el=document.getElementById('adm_kyc');
+  if(!users.length){ el.innerHTML='<div style="text-align:center;padding:2rem;color:var(--text2)">لا توجد طلبات معلقة ✓</div>'; return; }
+  el.innerHTML=users.map(function(u){
+    return '<div class="user-row"><div class="avatar">'+u.name[0]+'</div><div style="flex:1"><div class="u-name">'+u.name+'</div><div class="u-email">'+u.email+' · هوية: '+u.kyc_id+'</div></div><span class="badge by">قيد المراجعة</span><div class="u-acts"><button class="btn btn-gold btn-sm" onclick="approveKyc(\''+u.id+'\')">✅ قبول</button><button class="btn btn-red btn-sm" onclick="rejectKyc(\''+u.id+'\')">❌ رفض</button></div></div>';
+  }).join('');
+}
+
+async function approveKyc(id){ await db.from('users').update({kyc_status:'approved',status:'active'}).eq('id',id); loadKyc(); loadUsers(); toast('ok','تم التوثيق ✅',''); }
+async function rejectKyc(id){ await db.from('users').update({kyc_status:'rejected'}).eq('id',id); loadKyc(); toast('err','تم الرفض',''); }
+
+async function editWallet(type){
+  var cur=type==='tron'?CFG.tron:CFG.eth;
+  var val=prompt('أدخل عنوان محفظة '+(type==='tron'?'TRON TRC-20':'Ethereum ERC-20')+':',cur||'');
+  if(val!==null&&val.trim()){
+    var upd={id:1}; upd[type==='tron'?'tron_wallet':'eth_wallet']=val.trim();
+    await db.from('settings').upsert([upd]);
+    if(type==='tron') CFG.tron=val.trim(); else CFG.eth=val.trim();
+    document.getElementById('adm_'+type).textContent=val.trim();
+    document.getElementById('s_'+(type==='tron'?'tron':'eth')).value=val.trim();
+    toast('ok','تم الحفظ','عنوان المحفظة محدّث ✅');
+  }
+}
+
+async function saveSettings(){
+  var upd={id:1,tron_wallet:document.getElementById('s_tron').value.trim(),eth_wallet:document.getElementById('s_eth').value.trim(),support_email:document.getElementById('s_email').value.trim(),withdraw_fee:parseFloat(document.getElementById('s_fee').value)||6,min_withdraw:parseFloat(document.getElementById('s_minwd').value)||50};
+  var np=document.getElementById('s_admpass').value; if(np) upd.admin_pass=np;
+  await db.from('settings').upsert([upd]); await loadCFG();
+  toast('ok','تم الحفظ','تم حفظ جميع الإعدادات ✅');
+}
+
+// SCHEDULER
+function getTR(){ var n=new Date(), u=n.getUTCHours()*60+n.getUTCMinutes(), t=(u+180)%1440; return {h:Math.floor(t/60),m:t%60,s:n.getUTCSeconds()}; }
+var SD={1:false,2:false,3:false};
+setInterval(async function(){
+  if(!IS_ADM) return;
+  var t=getTR(), today=new Date().toISOString().split('T')[0];
+  var sent=await db.from('schedule_log').select('slot').eq('date',today);
+  var ss=sent.data?sent.data.map(function(s){ return s.slot; }):[];
+  var slots=[[14,1],[16,2],[20,3]];
+  for(var i=0;i<slots.length;i++){
+    var h=slots[i][0], slot=slots[i][1];
+    if(t.h===h && t.m<3 && !ss.includes(slot) && !SD[slot]){
+      SD[slot]=true;
+      var users=await db.from('users').select('id').eq('status','active');
+      if(users.data&&users.data.length){
+        var ins=users.data.map(function(u){ return {user_id:u.id,code:mkCode(),profit_pct:Math.random()>0.5?1:1.5,used:false,slot:slot,created_at:new Date().toISOString()}; });
+        await db.from('codes_log').insert(ins);
+        await db.from('schedule_log').insert([{date:today,slot:slot,sent_at:new Date().toISOString()}]);
+        document.getElementById('sc'+slot).innerHTML='<span class="badge bg">تم الإرسال ✓</span>';
+        toast('ok','إرسال تلقائي ✅','أُرسل الكود للجميع في الموعد المحدد');
+      }
+    }
+  }
+}, 30000);
+
+async function checkSched(){
+  var today=new Date().toISOString().split('T')[0];
+  var r=await db.from('schedule_log').select('slot').eq('date',today);
+  var ss=r.data?r.data.map(function(s){ return s.slot; }):[];
+  [1,2,3].forEach(function(s){ var el=document.getElementById('sc'+s); if(el) el.innerHTML=ss.includes(s)?'<span class="badge bg">تم الإرسال ✓</span>':'<span class="badge bx">في الانتظار</span>'; });
+}
+
+// SIDEBAR
+document.querySelectorAll('.sb-item[data-s]').forEach(function(el){
+  el.addEventListener('click', function(){
+    document.querySelectorAll('.sb-item').forEach(function(s){ s.classList.remove('on'); }); el.classList.add('on');
+    document.querySelectorAll('.usec').forEach(function(s){ s.classList.add('hidden'); });
+    var sec=document.getElementById('s-'+el.dataset.s); if(sec) sec.classList.remove('hidden');
+    if(el.dataset.s==='codes') renderCodesHist();
+    if(el.dataset.s==='wallet') renderWalletTab();
+    if(el.dataset.s==='referral') renderRefTab();
+    if(el.dataset.s==='history') renderHistTab();
+  });
+});
+
+// ADMIN TABS
+document.getElementById('admtabs').addEventListener('click', function(e){
+  var tab=e.target.closest('.a-tab'); if(!tab) return;
+  document.querySelectorAll('.a-tab').forEach(function(t){ t.classList.remove('on'); });
+  document.querySelectorAll('.adm-sec').forEach(function(s){ s.classList.remove('on'); });
+  tab.classList.add('on');
+  var sec=document.getElementById('at-'+tab.dataset.t); if(sec) sec.classList.add('on');
+});
+
+// COUNTDOWN
+function startCD(){ updCD(); setInterval(updCD, 1000); }
+function updCD(){
+  var t=getTR();
+  [[14,'cd1'],[16,'cd2'],[20,'cd3']].forEach(function(p){
+    var diff=(p[0]*3600)-(t.h*3600+t.m*60+t.s); if(diff<0) diff+=86400;
+    var el=document.getElementById(p[1]); if(el) el.textContent=Math.floor(diff/3600).toString().padStart(2,'0')+':'+Math.floor((diff%3600)/60).toString().padStart(2,'0')+':'+(diff%60).toString().padStart(2,'0');
+  });
+  var el=document.getElementById('u_time'); if(el) el.textContent='الوقت الآن: '+String(t.h).padStart(2,'0')+':'+String(t.m).padStart(2,'0');
+}
+
+// MODALS
+function openM(id){ var el=document.getElementById(id); if(el) el.classList.add('open'); }
+function closeM(id){ var el=document.getElementById(id); if(el) el.classList.remove('open'); }
+document.querySelectorAll('.overlay').forEach(function(m){ m.addEventListener('click', function(e){ if(e.target===m) m.classList.remove('open'); }); });
+function copyRef(){ navigator.clipboard.writeText(document.getElementById('ref_link').textContent); toast('info','تم النسخ','رابط الإحالة مُنسخ'); }
+
+// TOAST
+function toast(type, title, text){
+  var icons={ok:'✅',err:'❌',info:'ℹ️',code:'🎯'};
+  var el=document.createElement('div'); el.className='toast '+type;
+  el.innerHTML='<div style="font-size:1.1rem">'+(icons[type]||'📢')+'</div><div><div class="toast-t">'+title+'</div><div class="toast-p">'+text+'</div></div>';
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(function(){ el.style.animation='slideOut 0.3s ease forwards'; setTimeout(function(){ el.remove(); },300); }, 4000);
+  return el;
+}
+function mkToast(type,icon,title,text){
+  var el=document.createElement('div'); el.className='toast '+type;
+  el.innerHTML='<div style="font-size:1.1rem">'+icon+'</div><div><div class="toast-t">'+title+'</div><div class="toast-p">'+text+'</div></div>';
+  document.getElementById('toasts').appendChild(el);
+  return el;
+}
+function flyProfit(txt){
+  var el=document.createElement('div'); el.className='pfly'; el.textContent=txt;
+  el.style.cssText='left:'+(25+Math.random()*50)+'%;bottom:30%;';
+  document.body.appendChild(el); setTimeout(function(){ el.remove(); },1600);
+}
+function mkCode(){ var c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',r=''; for(var i=0;i<6;i++) r+=c[Math.floor(Math.random()*c.length)]; return r; }
+function fmt(iso){ if(!iso) return '—'; return new Date(iso).toLocaleString('ar',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function stb(s){ if(s==='مكتمل'||s==='مؤكد'||s==='approved') return 'bg'; if(s==='مرفوض'||s==='rejected') return 'br'; return 'by'; }
+function countUp(id,target,prefix){ if(!target) return; var cur=0,step=target/50,el=document.getElementById(id); if(!el) return; var t=setInterval(function(){ cur=Math.min(cur+step,target); el.textContent=prefix+Math.floor(cur).toLocaleString('ar'); if(cur>=target) clearInterval(t); },25); }
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
