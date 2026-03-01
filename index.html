@@ -601,30 +601,20 @@ function subRT(uid){
     }
     // تحديث بيانات المستخدم دائماً
     var u=await DB.from('users').select('*').eq('id',uid).single();
-    if(u.data){
-      ME=u.data;
+    if(!u.data)return;
+    var prevBal=ME.balance;var prevPr=ME.profit_bal;
+    ME=u.data;
+    // إذا تغير الرصيد أظهر تحديث
+    if(ME.balance!==prevBal||ME.profit_bal!==prevPr){
       rCards();
-      // إضافة الأرباح المعلقة تلقائياً بعد 15 دقيقة
-      if((ME.pending_profit||0)>0){
-        var lastCode=await DB.from('codes_log').select('used_at').eq('user_id',uid).eq('used',true).order('used_at',{ascending:false}).limit(1).single();
-        if(lastCode.data&&lastCode.data.used_at){
-          var diff=(Date.now()-new Date(lastCode.data.used_at).getTime())/1000;
-          if(diff>=900){
-            var pp=ME.pending_profit;
-            var nb=(ME.balance||0)+pp;
-            var np=(ME.profit_bal||0)+pp;
-            await DB.from('users').update({balance:nb,profit_bal:np,pending_profit:0}).eq('id',uid);
-            await DB.from('transactions').update({status:'مكتمل'}).eq('user_id',uid).eq('status','معلق').eq('type','كود ربح');
-            ME.balance=nb;ME.profit_bal=np;ME.pending_profit=0;
-            rCards();
-            document.getElementById('pd-box').classList.add('hid');
-            tst('ok','🎉 الأرباح وصلت!','تمت إضافة $'+pp.toFixed(2)+' لرصيدك');
-            clearInterval(PI);
-          }
-        }
-      }
-      // تحديث wd-av
       var wdav=document.getElementById('wd-av');if(wdav)wdav.textContent='$'+(ME.profit_bal||0).toFixed(2);
+    }else{rCards();}
+    // تطبيق الأرباح المعلقة تلقائياً إذا حان وقتها
+    if((ME.pending_profit||0)>0&&ME.profit_due_at){
+      var due=new Date(ME.profit_due_at).getTime();
+      if(Date.now()>=due){
+        await applyPending();
+      }
     }
   },8000);
 }
@@ -720,7 +710,6 @@ function doLogout(){if(RT)clearInterval(RT);RT=null;ME=null;ADM=false;tst('info'
 
 async function renderAll(){
   if(!ME)return;
-  // دائماً اجلب أحدث بيانات من قاعدة البيانات
   var r=await DB.from('users').select('*').eq('id',ME.id).single();
   if(r.data)ME=r.data;
   document.getElementById('u-nm').textContent=ME.name;
@@ -731,6 +720,17 @@ async function renderAll(){
   rCards();
   await loadTC();renderCG();
   rWallet();rRef();rHist();
+  // إذا كان هناك ربح معلق استأنف العداد
+  if((ME.pending_profit||0)>0&&ME.profit_due_at){
+    var due=new Date(ME.profit_due_at).getTime();
+    if(Date.now()>=due){
+      await applyPending();
+    }else{
+      document.getElementById('pd-box').classList.remove('hid');
+      document.getElementById('pd-amt').textContent='$'+(ME.pending_profit||0).toFixed(2);
+      startP(ME.pending_profit,ME.profit_due_at);
+    }
+  }
   subRT(ME.id);
 }
 
@@ -804,44 +804,54 @@ async function useCode(){
   if((ME.balance||0)===0){tst('err','لا رصيد','يجب إيداع رصيد أولاً');return;}
   var code=TC.find(function(c){return c.code===val&&!c.used&&(Date.now()-new Date(c.created_at).getTime()<=15*60*1000);});
   if(!code){tst('err','كود خاطئ','الكود غير موجود أو مستخدم أو منتهي');return;}
-  // تحقق أن الكود لم ينتهي وقته (15 دقيقة من الإرسال)
   var sent=new Date(code.created_at).getTime();
-  var now=Date.now();
-  if(now-sent>15*60*1000){
-    tst('err','انتهى وقت الكود','لم يتم التفعيل في 15 دقيقة');
-    loadTC().then(renderCG);return;
-  }
-  var profit=(ME.balance||0)*code.profit_pct/100;
+  if(Date.now()-sent>15*60*1000){tst('err','انتهى وقت الكود','لم يتم التفعيل في 15 دقيقة');loadTC().then(renderCG);return;}
+  var profit=parseFloat(((ME.balance||0)*code.profit_pct/100).toFixed(2));
+  // حفظ وقت استحقاق الربح = الآن + 15 دقيقة
+  var dueAt=new Date(Date.now()+15*60*1000).toISOString();
   await DB.from('codes_log').update({used:true,used_at:new Date().toISOString()}).eq('id',code.id);
-  await DB.from('users').update({pending_profit:(ME.pending_profit||0)+profit}).eq('id',ME.id);
-  await DB.from('transactions').insert([{user_id:ME.id,type:'كود ربح',amount:profit.toFixed(2),network:'—',status:'معلق',code_used:val,created_at:new Date().toISOString()}]);
+  await DB.from('users').update({pending_profit:profit,profit_due_at:dueAt}).eq('id',ME.id);
+  await DB.from('transactions').insert([{user_id:ME.id,type:'كود ربح',amount:profit,network:'—',status:'معلق',code_used:val,created_at:new Date().toISOString()}]);
   document.getElementById('cin').value='';
   flyUp('+$'+profit.toFixed(2));
-  tst('ok','كود صحيح ✅','ربح $'+profit.toFixed(2)+' — يُضاف لرصيدك خلال 15 دقيقة');
-  startP(profit);await renderAll();
+  tst('ok','كود صحيح ✅','ربح $'+profit+' — يُضاف لرصيدك خلال 15 دقيقة');
+  startP(profit,dueAt);
+  var fr=await DB.from('users').select('*').eq('id',ME.id).single();
+  if(fr.data)ME=fr.data;
+  rCards();await loadTC();renderCG();
 }
 
 // الربح يُضاف للرصيد الأساسي بعد 15 دقيقة
-function startP(profit){
+function startP(profit,dueAt){
   document.getElementById('pd-box').classList.remove('hid');
-  document.getElementById('pd-amt').textContent='$'+profit.toFixed(2);
-  var s=900;clearInterval(PI);
+  document.getElementById('pd-amt').textContent='$'+profit;
+  clearInterval(PI);
   PI=setInterval(async function(){
-    s--;
-    var m=Math.floor(s/60).toString().padStart(2,'0'),sc=(s%60).toString().padStart(2,'0');
+    var rem=Math.max(0,Math.ceil((new Date(dueAt).getTime()-Date.now())/1000));
+    var m=Math.floor(rem/60).toString().padStart(2,'0'),sc=(rem%60).toString().padStart(2,'0');
     var el=document.getElementById('pd-tmr');if(el)el.textContent=m+':'+sc;
-    if(s<=0){
+    if(rem<=0){
       clearInterval(PI);
-      var fr=await DB.from('users').select('balance,profit_bal,pending_profit').eq('id',ME.id).single();
-      var newBal=(fr.data?.balance||0)+(fr.data?.pending_profit||0);
-      var newPr=(fr.data?.profit_bal||0)+(fr.data?.pending_profit||0);
-      await DB.from('users').update({balance:newBal,profit_bal:newPr,pending_profit:0}).eq('id',ME.id);
-      await DB.from('transactions').update({status:'مكتمل'}).eq('user_id',ME.id).eq('status','معلق').eq('type','كود ربح');
-      tst('ok','🎉 الأرباح وصلت!','تمت إضافة $'+profit.toFixed(2)+' لرصيدك');
-      document.getElementById('pd-box').classList.add('hid');
-      renderAll();
+      await applyPending();
     }
   },1000);
+}
+
+async function applyPending(){
+  if(!ME||!ME.id)return;
+  var fr=await DB.from('users').select('*').eq('id',ME.id).single();
+  if(!fr.data)return;
+  var pp=parseFloat(fr.data.pending_profit)||0;
+  if(pp<=0){document.getElementById('pd-box').classList.add('hid');return;}
+  var nb=parseFloat(((fr.data.balance||0)+pp).toFixed(2));
+  var np=parseFloat(((fr.data.profit_bal||0)+pp).toFixed(2));
+  await DB.from('users').update({balance:nb,profit_bal:np,pending_profit:0,profit_due_at:null}).eq('id',ME.id);
+  await DB.from('transactions').update({status:'مكتمل'}).eq('user_id',ME.id).eq('status','معلق').eq('type','كود ربح');
+  ME.balance=nb;ME.profit_bal=np;ME.pending_profit=0;
+  rCards();
+  var wdav=document.getElementById('wd-av');if(wdav)wdav.textContent='$'+np.toFixed(2);
+  document.getElementById('pd-box').classList.add('hid');
+  tst('ok','🎉 الأرباح وصلت!','تمت إضافة $'+pp.toFixed(2)+' لرصيدك');
 }
 
 function selA(a,el){DA=a;document.querySelectorAll('.damt').forEach(function(o){o.classList.remove('sl');});el.classList.add('sl');document.getElementById('dep-an').textContent='$'+a;}
@@ -973,31 +983,43 @@ async function loadD(){
 
 // تأكيد الإيداع — مكافأة مع كل إيداع + تتبع تاريخ أول إيداع
 async function confD(id,uid,amt){
-  await DB.from('deposits').update({status:'confirmed'}).eq('id',id);
-  var u=await DB.from('users').select('balance,bonus,ref_by,qual_refs,first_dep_date').eq('id',uid).single();
-  var nb=(u.data?.balance||0)+amt;
-  var bon=amt>=500?50:amt>=200?30:15; // هدية مع كل إيداع
-  var newBonus=(u.data?.bonus||0)+bon;
+  // أولاً: اجلب بيانات المستخدم الحالية
+  var u=await DB.from('users').select('*').eq('id',uid).single();
+  if(u.error||!u.data){tst('err','خطأ','لم يُعثر على المستخدم');return;}
+  
+  var bon=amt>=500?50:amt>=200?30:15;
+  // الرصيد الجديد = الرصيد الحالي + الإيداع + الهدية
+  var nb=parseFloat(((u.data.balance||0)+amt+bon).toFixed(2));
+  var newBonus=parseFloat(((u.data.bonus||0)+bon).toFixed(2));
+  
   var upd={balance:nb,status:'active',bonus:newBonus};
-  // تسجيل تاريخ أول إيداع (للتحقق من 40 يوم)
-  if(!u.data?.first_dep_date){upd.first_dep_date=new Date().toISOString();}
-  await DB.from('users').update(upd).eq('id',uid);
-  await DB.from('transactions').insert([{user_id:uid,type:'مكافأة إيداع 🎁',amount:bon,network:'—',status:'مكتمل',created_at:new Date().toISOString()}]);
+  if(!u.data.first_dep_date){upd.first_dep_date=new Date().toISOString();}
+  
+  // تحديث قاعدة البيانات
+  var res=await DB.from('users').update(upd).eq('id',uid);
+  if(res.error){tst('err','خطأ في التحديث',res.error.message);return;}
+  
+  await DB.from('deposits').update({status:'confirmed'}).eq('id',id);
   await DB.from('transactions').update({status:'مؤكد'}).eq('user_id',uid).eq('type','إيداع').eq('status','معلق');
+  await DB.from('transactions').insert([{user_id:uid,type:'مكافأة إيداع 🎁',amount:bon,network:'—',status:'مكتمل',created_at:new Date().toISOString()}]);
+  
   // تحقق من إحالة ذهبية: 8 أشخاص يودعون $500+
-  if(amt>=500&&u.data?.ref_by){
+  if(amt>=500&&u.data.ref_by){
     var refUser=await DB.from('users').select('qual_refs,balance,bonus').eq('id',u.data.ref_by).single();
-    var nq=(refUser.data?.qual_refs||0)+1;
-    var rupd={qual_refs:nq};
-    if(nq>=8){
-      rupd.balance=(refUser.data?.balance||0)+1000;
-      rupd.bonus=(refUser.data?.bonus||0)+1000;
-      await DB.from('transactions').insert([{user_id:u.data.ref_by,type:'🏆 مكافأة إحالة ذهبية',amount:1000,network:'—',status:'مكتمل',created_at:new Date().toISOString()}]);
-      tst('ok','🏆 مكافأة ذهبية!','أُضيف $1,000 للمستخدم المُحيل');
+    if(refUser.data){
+      var nq=(refUser.data.qual_refs||0)+1;
+      var rupd={qual_refs:nq};
+      if(nq>=8){
+        rupd.balance=parseFloat(((refUser.data.balance||0)+1000).toFixed(2));
+        rupd.bonus=parseFloat(((refUser.data.bonus||0)+1000).toFixed(2));
+        await DB.from('transactions').insert([{user_id:u.data.ref_by,type:'🏆 مكافأة إحالة ذهبية',amount:1000,network:'—',status:'مكتمل',created_at:new Date().toISOString()}]);
+        tst('ok','🏆 مكافأة ذهبية!','أُضيف $1,000 للمستخدم المُحيل');
+      }
+      await DB.from('users').update(rupd).eq('id',u.data.ref_by);
     }
-    await DB.from('users').update(rupd).eq('id',u.data.ref_by);
   }
-  tst('ok','تم تأكيد الإيداع ✅','$'+amt+' مضافة + هدية $'+bon);loadD();renderAdm();
+  tst('ok','تم تأكيد الإيداع ✅','$'+amt+' + هدية $'+bon+' = $'+nb+' رصيد جديد');
+  loadD();renderAdm();
 }
 
 async function loadW(){
