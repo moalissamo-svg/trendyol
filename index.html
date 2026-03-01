@@ -588,27 +588,45 @@ async function loadC(){
 var lastCheck=0;
 function subRT(uid){
   if(RT)clearInterval(RT);
-  lastCheck=Date.now();
+  lastCheck=Date.now()-5000;
   RT=setInterval(async function(){
     if(!ME||!uid)return;
+    // تحقق من أكواد جديدة
     var since=new Date(lastCheck).toISOString();
     lastCheck=Date.now();
     var r=await DB.from('codes_log').select('*').eq('user_id',uid).gt('created_at',since);
     if(r.data&&r.data.length){
-      r.data.forEach(function(c){
-        showPop(c.code,c.profit_pct);
-        addN(c.code,c.profit_pct);
-      });
+      r.data.forEach(function(c){showPop(c.code,c.profit_pct);addN(c.code,c.profit_pct);});
       await loadTC();renderCG();
     }
-    // تحديث الرصيد تلقائياً
-    var u=await DB.from('users').select('balance,profit_bal,pending_profit,bonus').eq('id',uid).single();
+    // تحديث بيانات المستخدم دائماً
+    var u=await DB.from('users').select('*').eq('id',uid).single();
     if(u.data){
-      var changed=(u.data.balance!==ME.balance)||(u.data.profit_bal!==ME.profit_bal);
-      ME.balance=u.data.balance;ME.profit_bal=u.data.profit_bal;ME.pending_profit=u.data.pending_profit;ME.bonus=u.data.bonus;
-      if(changed)rCards();
+      ME=u.data;
+      rCards();
+      // إضافة الأرباح المعلقة تلقائياً بعد 15 دقيقة
+      if((ME.pending_profit||0)>0){
+        var lastCode=await DB.from('codes_log').select('used_at').eq('user_id',uid).eq('used',true).order('used_at',{ascending:false}).limit(1).single();
+        if(lastCode.data&&lastCode.data.used_at){
+          var diff=(Date.now()-new Date(lastCode.data.used_at).getTime())/1000;
+          if(diff>=900){
+            var pp=ME.pending_profit;
+            var nb=(ME.balance||0)+pp;
+            var np=(ME.profit_bal||0)+pp;
+            await DB.from('users').update({balance:nb,profit_bal:np,pending_profit:0}).eq('id',uid);
+            await DB.from('transactions').update({status:'مكتمل'}).eq('user_id',uid).eq('status','معلق').eq('type','كود ربح');
+            ME.balance=nb;ME.profit_bal=np;ME.pending_profit=0;
+            rCards();
+            document.getElementById('pd-box').classList.add('hid');
+            tst('ok','🎉 الأرباح وصلت!','تمت إضافة $'+pp.toFixed(2)+' لرصيدك');
+            clearInterval(PI);
+          }
+        }
+      }
+      // تحديث wd-av
+      var wdav=document.getElementById('wd-av');if(wdav)wdav.textContent='$'+(ME.profit_bal||0).toFixed(2);
     }
-  },10000);
+  },8000);
 }
 
 // POPUP مع عداد 15 دقيقة
@@ -702,13 +720,18 @@ function doLogout(){if(RT)clearInterval(RT);RT=null;ME=null;ADM=false;tst('info'
 
 async function renderAll(){
   if(!ME)return;
-  var r=await DB.from('users').select('*').eq('id',ME.id).single();if(r.data)ME=r.data;
+  // دائماً اجلب أحدث بيانات من قاعدة البيانات
+  var r=await DB.from('users').select('*').eq('id',ME.id).single();
+  if(r.data)ME=r.data;
   document.getElementById('u-nm').textContent=ME.name;
   document.getElementById('kyc-num').textContent=ME.kyc_id||'—';
   document.getElementById('wd-av').textContent='$'+(ME.profit_bal||0).toFixed(2);
   document.getElementById('ref-lnk').textContent=location.origin+location.pathname+'?ref='+ME.ref_code;
   var rc=document.getElementById('my-rcode');if(rc)rc.textContent=ME.ref_code||'—';
-  rCards();await loadTC();renderCG();rWallet();rRef();rHist();subRT(ME.id);
+  rCards();
+  await loadTC();renderCG();
+  rWallet();rRef();rHist();
+  subRT(ME.id);
 }
 
 function rCards(){
