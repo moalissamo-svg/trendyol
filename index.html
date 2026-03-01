@@ -585,14 +585,30 @@ async function loadC(){
 }
 
 // REALTIME
+var lastCheck=0;
 function subRT(uid){
-  if(RT)DB.removeChannel(RT);
-  RT=DB.channel('rt_'+uid).on('postgres_changes',{event:'INSERT',schema:'public',table:'codes_log',filter:'user_id=eq.'+uid},function(ev){
-    var c=ev.new;
-    showPop(c.code,c.profit_pct);
-    addN(c.code,c.profit_pct);
-    loadTC().then(renderCG);
-  }).subscribe();
+  if(RT)clearInterval(RT);
+  lastCheck=Date.now();
+  RT=setInterval(async function(){
+    if(!ME||!uid)return;
+    var since=new Date(lastCheck).toISOString();
+    lastCheck=Date.now();
+    var r=await DB.from('codes_log').select('*').eq('user_id',uid).gt('created_at',since);
+    if(r.data&&r.data.length){
+      r.data.forEach(function(c){
+        showPop(c.code,c.profit_pct);
+        addN(c.code,c.profit_pct);
+      });
+      await loadTC();renderCG();
+    }
+    // تحديث الرصيد تلقائياً
+    var u=await DB.from('users').select('balance,profit_bal,pending_profit,bonus').eq('id',uid).single();
+    if(u.data){
+      var changed=(u.data.balance!==ME.balance)||(u.data.profit_bal!==ME.profit_bal);
+      ME.balance=u.data.balance;ME.profit_bal=u.data.profit_bal;ME.pending_profit=u.data.pending_profit;ME.bonus=u.data.bonus;
+      if(changed)rCards();
+    }
+  },10000);
 }
 
 // POPUP مع عداد 15 دقيقة
@@ -682,7 +698,7 @@ async function doRegister(){
   setTimeout(function(){go('user');},600);
 }
 
-function doLogout(){if(RT)DB.removeChannel(RT);ME=null;ADM=false;tst('info','تم الخروج','إلى اللقاء 👋');setTimeout(function(){go('landing');},400);}
+function doLogout(){if(RT)clearInterval(RT);RT=null;ME=null;ADM=false;tst('info','تم الخروج','إلى اللقاء 👋');setTimeout(function(){go('landing');},400);}
 
 async function renderAll(){
   if(!ME)return;
