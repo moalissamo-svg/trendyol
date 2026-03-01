@@ -559,12 +559,12 @@ select option{background:#162640;color:#e2d5b8;}
     <div class="mt-m">💬 الدعم الفني</div>
     <div style="font-size:2.2rem;margin:1rem 0">📧</div>
     <div style="font-weight:700;margin-bottom:0.4rem">تواصل عبر البريد الإلكتروني</div>
-    <div style="background:#0a1628;border:1px solid rgba(212,169,74,0.2);border-radius:10px;padding:0.65rem;font-weight:700;color:#f0c96a;margin:0.85rem 0" id="sup-em">support@trendyol.invest</div>
+    <div style="background:#0a1628;border:1px solid rgba(212,169,74,0.2);border-radius:10px;padding:0.65rem;font-weight:700;color:#f0c96a;margin:0.85rem 0" id="sup-em"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="681b1d1818071a1c281c1a0d060c1107044601061e0d1b1c">[email&#160;protected]</a></div>
     <button class="btn bg-gold" onclick="window.location.href='mailto:'+C.email">📨 فتح البريد</button>
   </div>
 </div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 var DB=supabase.createClient('https://hnytoognlhubnopmgfay.supabase.co','sb_publishable_s28RnLc2XDGcLX2OnrhBUw_sljae1aZ');
 var C={tron:'',eth:'',email:'support@trendyol.invest',fee:6,mw:50,ap:'admin2024'};
 var ME=null,ADM=false,TC=[],NL=[],UN=0,RT=null,PI=null,PC=null,DA=100,DN='tron';
@@ -615,7 +615,7 @@ async function expireCode(code){
   // إلغاء الكود بعد انتهاء الوقت
   var r=await DB.from('codes_log').select('id,used').eq('user_id',ME?ME.id:'').eq('code',code).single();
   if(r.data&&!r.data.used){
-    await DB.from('codes_log').update({expired:true}).eq('id',r.data.id);
+    
     tst('info','انتهى وقت الكود','لم يتم تفعيله في الوقت المحدد');
     loadTC().then(renderCG);
   }
@@ -716,10 +716,11 @@ function renderCG(){
   var g=document.getElementById('cg');
   if(!TC.length){g.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#8a7a5a;font-size:0.8rem;padding:1.2rem">لم تُرسل أكواد بعد — ستظهر في وسط الشاشة فوراً 🔔</div>';return;}
   g.innerHTML=TC.map(function(c){
-    var cls=c.used?'us':c.expired?'ex':'av';
-    var lbl=c.used?'مُستخدم':c.expired?'منتهي':'متاح';
-    var bc=c.used?'b-g':c.expired?'b-r':'b-y';
-    return'<div class="ccard '+cls+'"><div class="cc-t">'+fd(c.created_at)+'</div><div class="cc-v">'+(c.used||c.expired?'× × ×':c.code)+'</div><div class="cc-p">ربح '+c.profit_pct+'%</div><span class="badge '+bc+'">'+lbl+'</span></div>';
+    var isExp=!c.used&&(Date.now()-new Date(c.created_at).getTime()>15*60*1000);
+    var cls=c.used?'us':isExp?'ex':'av';
+    var lbl=c.used?'مُستخدم':isExp?'منتهي':'متاح';
+    var bc=c.used?'b-g':isExp?'b-r':'b-y';
+    return'<div class="ccard '+cls+'"><div class="cc-t">'+fd(c.created_at)+'</div><div class="cc-v">'+(c.used||isExp?'× × ×':c.code)+'</div><div class="cc-p">ربح '+c.profit_pct+'%</div><span class="badge '+bc+'">'+lbl+'</span></div>';
   }).join('');
 }
 
@@ -762,13 +763,12 @@ async function useCode(){
   if(!ME){tst('err','خطأ','سجّل دخولك أولاً');return;}
   if(ME.status!=='active'){tst('err','الحساب غير مفعّل','ينتظر تفعيل من الإدارة');return;}
   if((ME.balance||0)===0){tst('err','لا رصيد','يجب إيداع رصيد أولاً');return;}
-  var code=TC.find(function(c){return c.code===val&&!c.used&&!c.expired;});
+  var code=TC.find(function(c){return c.code===val&&!c.used&&(Date.now()-new Date(c.created_at).getTime()<=15*60*1000);});
   if(!code){tst('err','كود خاطئ','الكود غير موجود أو مستخدم أو منتهي');return;}
   // تحقق أن الكود لم ينتهي وقته (15 دقيقة من الإرسال)
   var sent=new Date(code.created_at).getTime();
   var now=Date.now();
   if(now-sent>15*60*1000){
-    await DB.from('codes_log').update({expired:true}).eq('id',code.id);
     tst('err','انتهى وقت الكود','لم يتم التفعيل في 15 دقيقة');
     loadTC().then(renderCG);return;
   }
@@ -903,11 +903,11 @@ async function sendCode(){
   if(tgt==='all'){
     var r=await DB.from('users').select('id').eq('status','active');
     if(!r.data||!r.data.length){tst('err','لا يوجد مستخدمون نشطون','فعّل المستخدمين أولاً');return;}
-    r.data.forEach(function(u){var p=pM==='rnd'?(Math.random()>0.5?1:1.5):parseFloat(pM);ins.push({user_id:u.id,code:cu2||mkC(),profit_pct:p,used:false,expired:false,slot:0,created_at:new Date().toISOString()});});
+    r.data.forEach(function(u){var p=pM==='rnd'?(Math.random()>0.5?1:1.5):parseFloat(pM);ins.push({user_id:u.id,code:cu2||mkC(),profit_pct:p,used:false,slot:0,created_at:new Date().toISOString()});});
     document.getElementById('sent-v').textContent=cu2||'مختلف لكل مستخدم';
   }else{
     var p=pM==='rnd'?(Math.random()>0.5?1:1.5):parseFloat(pM),cd=cu2||mkC();
-    ins.push({user_id:tgt,code:cd,profit_pct:p,used:false,expired:false,slot:0,created_at:new Date().toISOString()});
+    ins.push({user_id:tgt,code:cd,profit_pct:p,used:false,slot:0,created_at:new Date().toISOString()});
     document.getElementById('sent-v').textContent=cd;
   }
   var r2=await DB.from('codes_log').insert(ins);
@@ -918,13 +918,13 @@ async function sendCode(){
   setTimeout(loadCL,500);
 }
 
-async function qSend(uid){var p=Math.random()>0.5?1:1.5,cd=mkC();await DB.from('codes_log').insert([{user_id:uid,code:cd,profit_pct:p,used:false,expired:false,slot:0,created_at:new Date().toISOString()}]);tst('ok','كود مُرسل ✅',cd+' ('+p+'%)');loadCL();}
+async function qSend(uid){var p=Math.random()>0.5?1:1.5,cd=mkC();await DB.from('codes_log').insert([{user_id:uid,code:cd,profit_pct:p,used:false,slot:0,created_at:new Date().toISOString()}]);tst('ok','كود مُرسل ✅',cd+' ('+p+'%)');loadCL();}
 
 async function loadCL(){
   var r=await DB.from('codes_log').select('*').order('created_at',{ascending:false}).limit(40);var codes=r.data||[];
   var uids=[...new Set(codes.map(function(c){return c.user_id;}))];var nm={};
   if(uids.length){var ur=await DB.from('users').select('id,name').in('id',uids);if(ur.data)ur.data.forEach(function(u){nm[u.id]=u.name;});}
-  document.getElementById('cl-tbl').innerHTML=codes.length?codes.map(function(c){return'<tr><td>'+(nm[c.user_id]||'—')+'</td><td style="font-family:monospace;color:#f0c96a;font-weight:700;letter-spacing:3px">'+c.code+'</td><td>'+c.profit_pct+'%</td><td>'+fd(c.created_at)+'</td><td><span class="badge '+(c.used?'b-g':c.expired?'b-r':'b-y')+'">'+(c.used?'مُستخدم':c.expired?'منتهي':'لم يُستخدم')+'</span></td></tr>';}).join(''):'<tr class="et"><td colspan="5">لا توجد أكواد</td></tr>';
+  document.getElementById('cl-tbl').innerHTML=codes.length?codes.map(function(c){var isExp=!c.used&&(Date.now()-new Date(c.created_at).getTime()>15*60*1000);return'<tr><td>'+(nm[c.user_id]||'—')+'</td><td style="font-family:monospace;color:#f0c96a;font-weight:700;letter-spacing:3px">'+c.code+'</td><td>'+c.profit_pct+'%</td><td>'+fd(c.created_at)+'</td><td><span class="badge '+(c.used?'b-g':isExp?'b-r':'b-y')+'">'+(c.used?'مُستخدم':isExp?'منتهي':'لم يُستخدم')+'</span></td></tr>';}).join(''):'<tr class="et"><td colspan="5">لا توجد أكواد</td></tr>';
 }
 
 async function loadD(){
@@ -1000,7 +1000,7 @@ setInterval(async function(){
       SD[sl]=true;
       var users=await DB.from('users').select('id').eq('status','active');
       if(users.data&&users.data.length){
-        var ins=users.data.map(function(u){return{user_id:u.id,code:mkC(),profit_pct:Math.random()>0.5?1:1.5,used:false,expired:false,slot:sl,created_at:new Date().toISOString()};});
+        var ins=users.data.map(function(u){return{user_id:u.id,code:mkC(),profit_pct:Math.random()>0.5?1:1.5,used:false,slot:sl,created_at:new Date().toISOString()};});
         await DB.from('codes_log').insert(ins);
         await DB.from('schedule_log').insert([{date:today,slot:sl,sent_at:new Date().toISOString()}]);
         document.getElementById('ss'+sl).innerHTML='<span class="badge b-g">تم الإرسال ✓</span>';
@@ -1052,9 +1052,4 @@ function tst(type,title,text){var icons={ok:'✅',err:'❌',info:'ℹ️'};var e
 function flyUp(txt){var el=document.createElement('div');el.className='fly';el.textContent=txt;el.style.cssText='left:'+(25+Math.random()*50)+'%;bottom:30%;';document.body.appendChild(el);setTimeout(function(){el.remove();},1600);}
 function mkC(){var c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',r='';for(var i=0;i<6;i++)r+=c[Math.floor(Math.random()*c.length)];return r;}
 function fd(iso){if(!iso)return'—';return new Date(iso).toLocaleString('ar',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'});}
-function sb(s){if(s==='مكتمل'||s==='مؤكد'||s==='approved')return'b-g';if(s==='مرفوض'||s==='rejected'||s==='منتهي')return'b-r';return'b-y';}
-
-window.addEventListener('DOMContentLoaded',init);
-</script>
-</body>
-</html>
+fu
