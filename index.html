@@ -571,12 +571,16 @@ var ME=null,ADM=false,TC=[],NL=[],UN=0,RT=null,PI=null,PC=null,DA=100,DN='tron';
 var popTimerInt=null;
 
 async function init(){
-  try{await loadC();}catch(e){}
+  // إخفاء اللودر دائماً بعد ثانية واحدة بغض النظر عن أي شيء
+  setTimeout(function(){
+    var ld=document.getElementById('loader');
+    if(ld){ld.style.opacity='0';ld.style.pointerEvents='none';setTimeout(function(){ld.style.display='none';},500);}
+  },1000);
+  try{await Promise.race([loadC(),new Promise(function(r){setTimeout(r,3000);})]);}catch(e){}
   startCD();
   var p=new URLSearchParams(location.search);
-  if(p.get('admin')==='trendyol-secret')setTimeout(function(){go('adminlogin');},1800);
+  if(p.get('admin')==='trendyol-secret')go('adminlogin');
   var r=p.get('ref');if(r){var e=document.getElementById('r_rf');if(e)e.value=r;}
-  setTimeout(function(){var ld=document.getElementById('loader');if(ld)ld.classList.add('hide');},2000);
 }
 
 async function loadC(){
