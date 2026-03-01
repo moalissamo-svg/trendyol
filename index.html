@@ -1068,4 +1068,9 @@ function tst(type,title,text){var icons={ok:'✅',err:'❌',info:'ℹ️'};var e
 function flyUp(txt){var el=document.createElement('div');el.className='fly';el.textContent=txt;el.style.cssText='left:'+(25+Math.random()*50)+'%;bottom:30%;';document.body.appendChild(el);setTimeout(function(){el.remove();},1600);}
 function mkC(){var c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',r='';for(var i=0;i<6;i++)r+=c[Math.floor(Math.random()*c.length)];return r;}
 function fd(iso){if(!iso)return'—';return new Date(iso).toLocaleString('ar',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'});}
-fu
+function sb(s){if(s==='مكتمل'||s==='مؤكد'||s==='approved')return'b-g';if(s==='مرفوض'||s==='rejected')return'b-r';return'b-y';}
+
+window.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
