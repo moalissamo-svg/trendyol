@@ -714,7 +714,7 @@ function go(pg){
 
 function upNav(pg){
   var n=document.getElementById('navR');
-  if(pg==='user'&&ME){n.innerHTML='<div class="bell" onclick="toggleNP()">🔔<span class="bnum" id="bnum">0</span></div><span style="color:#8a7a5a;font-size:0.76rem">👤 <strong style="color:#d4a94a">'+ME.name+'</strong></span><button class="btn bg-ol btn-sm" onclick="openM(\'m-dep\')">+ إيداع</button><button class="btn bg-gr btn-sm" onclick="doLogout()">خروج</button>';}
+  if(pg==='user'&&ME){n.innerHTML='<div class="bell" onclick="toggleNP()">🔔<span class="bnum" id="bnum">0</span></div><span style="color:#8a7a5a;font-size:0.76rem">👤 <strong style="color:#d4a94a">'+ME.name+'</strong></span><button class="btn bg-ol btn-sm" onclick="openM(\'m-sup\')">💬 دعم</button><button class="btn bg-gr btn-sm" onclick="doLogout()">خروج</button>';}
   else if(pg==='admin'||pg==='adminlogin'){n.innerHTML='';}
   else{n.innerHTML='<button class="btn bg-ol btn-sm" onclick="go(\'login\')">دخول</button><button class="btn bg-gold btn-sm" onclick="go(\'register\')">ابدأ الآن</button>';}
 }
