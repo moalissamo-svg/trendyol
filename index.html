@@ -345,6 +345,7 @@ select option{background:#162640;color:#e2d5b8;}
           <div style="display:flex;gap:0.5rem">
             <button class="btn bg-gold btn-sm" onclick="openM('m-dep')">+ إيداع</button>
             <button class="btn bg-ol btn-sm" onclick="openM('m-wd')">↑ سحب</button>
+            <button class="btn bg-ol btn-sm" onclick="showRef()">👥 إحالة</button>
           </div>
         </div>
         <div class="cards">
@@ -584,10 +585,25 @@ select option{background:#162640;color:#e2d5b8;}
     </div>
   </div>
 </div>
-<div class="ov" id="m-wd">
+<div class="ov" id="m-ref">
+  <div class="modal"><button class="mc" onclick="closeM('m-ref')">✕</button>
+    <div class="mt-m">👥 كود الإحالة الخاص بك</div>
+    <div style="text-align:center;margin:1rem 0">
+      <div style="font-size:0.72rem;color:#8a7a5a;margin-bottom:0.5rem">كودك الخاص</div>
+      <div style="background:#0a1628;border:2px solid rgba(212,169,74,0.4);border-radius:12px;padding:0.8rem;font-size:1.8rem;font-weight:900;letter-spacing:6px;color:#f0c96a;font-family:monospace" id="m-rcode">—</div>
+      <button class="btn bg-gold mt1" onclick="cpRCode2()">نسخ الكود</button>
+    </div>
+    <div style="font-size:0.72rem;color:#8a7a5a;margin-bottom:0.4rem">رابط الدعوة</div>
+    <div style="display:flex;gap:0.5rem;align-items:center">
+      <div style="background:#0a1628;border:1px solid rgba(212,169,74,0.2);border-radius:9px;padding:0.5rem 0.7rem;font-size:0.7rem;color:#f0c96a;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="m-rlnk">—</div>
+      <button class="btn bg-gold btn-sm" onclick="cpRef2()">نسخ</button>
+    </div>
+    <div class="ibox mt1" style="font-size:0.78rem">ادعُ <strong style="color:#22c55e">8 أشخاص</strong> يودعون <strong style="color:#f0c96a">$500</strong> لكل منهم واحصل على <strong style="color:#f0c96a">$1,000 🎉</strong></div>
+  </div>
+</div>
   <div class="modal"><button class="mc" onclick="closeM('m-wd')">✕</button>
     <div class="mt-m">💸 سحب الأرباح</div>
-    <div class="ibox"><strong>رصيد الأرباح المتاح للسحب</strong><span style="font-size:1.2rem;font-weight:900;color:#f0c96a" id="wd-av">$0</span></div>
+    <div class="ibox"><strong>الرصيد المتاح للسحب</strong><span style="font-size:1.2rem;font-weight:900;color:#f0c96a" id="wd-av">$0</span></div>
     <div class="fld"><label>المبلغ المطلوب سحبه</label><input type="number" id="wd-am" placeholder="الحد الأدنى $50" oninput="calcF()"></div>
     <div class="fld"><label>عنوان محفظتك (TRC-20 أو ERC-20)</label><input id="wd-wl" placeholder="أدخل عنوان محفظتك"></div>
     <div class="ibox"><strong>رسوم السحب 6%</strong>ستستلم: <span id="wd-af" style="color:#f0c96a;font-weight:700">$0.00</span></div>
@@ -757,7 +773,7 @@ async function renderAll(){
     await DB.from('users').update({ref_code:newRc}).eq('id',ME.id);
     ME.ref_code=newRc;
   }
-  document.getElementById('wd-av').textContent='$'+(ME.profit_bal||0).toFixed(2);
+  document.getElementById('wd-av').textContent='$'+((ME.profit_bal||0)+(ME.balance||0)).toFixed(2);
   document.getElementById('ref-lnk').textContent=location.origin+location.pathname+'?ref='+ME.ref_code;
   var rc=document.getElementById('my-rcode');if(rc)rc.textContent=ME.ref_code;
   rCards();
@@ -923,9 +939,16 @@ async function subWd(){
   if(!ME)return;
   var amt=parseFloat(document.getElementById('wd-am').value),wl=document.getElementById('wd-wl').value.trim();
   if(!amt||amt<C.mw){tst('err','خطأ','الحد الأدنى $'+C.mw);return;}
-  if(amt>(ME.profit_bal||0)){tst('err','رصيد غير كافٍ','رصيد أرباحك: $'+(ME.profit_bal||0).toFixed(2));return;}
+  var totalBal=parseFloat(((ME.balance||0)+(ME.profit_bal||0)).toFixed(2));
+  if(amt>totalBal){tst('err','رصيد غير كافٍ','رصيدك الكلي: $'+totalBal.toFixed(2));return;}
   if(!wl){tst('err','خطأ','أدخل عنوان محفظتك');return;}
-  await DB.from('users').update({profit_bal:(ME.profit_bal||0)-amt}).eq('id',ME.id);
+  // الخصم: أولاً من profit_bal ثم من balance
+  var pr=ME.profit_bal||0;
+  var ba=ME.balance||0;
+  var newPr,newBa;
+  if(amt<=pr){newPr=parseFloat((pr-amt).toFixed(2));newBa=ba;}
+  else{newPr=0;newBa=parseFloat((ba-(amt-pr)).toFixed(2));}
+  await DB.from('users').update({balance:newBa,profit_bal:newPr}).eq('id',ME.id);
   await DB.from('withdrawals').insert([{user_id:ME.id,user_name:ME.name,amount:amt,wallet:wl,status:'pending',created_at:new Date().toISOString()}]);
   await DB.from('transactions').insert([{user_id:ME.id,type:'سحب',amount:amt,network:'—',status:'معلق',created_at:new Date().toISOString()}]);
   closeM('m-wd');tst('ok','طلب سحب مُرسل','في انتظار موافقة الإدارة');renderAll();
@@ -1181,7 +1204,13 @@ function openM(id){var el=document.getElementById(id);if(el)el.classList.add('op
 function closeM(id){var el=document.getElementById(id);if(el)el.classList.remove('open');}
 document.querySelectorAll('.ov').forEach(function(m){m.addEventListener('click',function(e){if(e.target===m)m.classList.remove('open');});});
 function cpRef(){navigator.clipboard.writeText(document.getElementById('ref-lnk').textContent);tst('info','تم النسخ','رابط الإحالة مُنسخ');}
-function cpRCode(){navigator.clipboard.writeText(document.getElementById('my-rcode').textContent);tst('info','تم النسخ','كود الإحالة مُنسخ');}
+function showRef(){
+  var rc=document.getElementById('m-rcode');if(rc)rc.textContent=ME.ref_code||'—';
+  var rl=document.getElementById('m-rlnk');if(rl)rl.textContent=location.origin+location.pathname+'?ref='+(ME.ref_code||'');
+  openM('m-ref');
+}
+function cpRCode2(){navigator.clipboard.writeText(ME.ref_code||'');tst('info','تم النسخ','كود الإحالة مُنسخ');}
+function cpRef2(){navigator.clipboard.writeText(location.origin+location.pathname+'?ref='+(ME.ref_code||''));tst('info','تم النسخ','رابط الإحالة مُنسخ');}
 function tst(type,title,text){var icons={ok:'✅',err:'❌',info:'ℹ️'};var el=document.createElement('div');el.className='tst '+type;el.innerHTML='<div style="font-size:1.1rem">'+(icons[type]||'📢')+'</div><div><div class="tt">'+title+'</div><div class="tp">'+text+'</div></div>';document.getElementById('toasts').appendChild(el);setTimeout(function(){el.style.animation='tOut 0.3s ease forwards';setTimeout(function(){el.remove();},300);},4500);return el;}
 function flyUp(txt){var el=document.createElement('div');el.className='fly';el.textContent=txt;el.style.cssText='left:'+(25+Math.random()*50)+'%;bottom:30%;';document.body.appendChild(el);setTimeout(function(){el.remove();},1600);}
 function mkC(){var c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',r='';for(var i=0;i<6;i++)r+=c[Math.floor(Math.random()*c.length)];return r;}
