@@ -101,6 +101,17 @@ footer{background:rgba(5,12,25,0.97);border-top:1px solid rgba(212,169,74,0.12);
 .sb-lbl{padding:0.3rem 1rem;font-size:0.58rem;color:#8a7a5a;text-transform:uppercase;letter-spacing:1.8px;}
 .sb-sep{height:1px;background:rgba(212,169,74,0.1);margin:0.5rem 0.8rem;}
 .main{flex:1;padding:1.5rem;margin-right:210px;}
+/* شريط تنقل سفلي للموبايل */
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;background:#0d1e38;border-top:1px solid rgba(212,169,74,0.2);padding:0.4rem 0;}
+.mob-nav-inner{display:flex;justify-content:space-around;align-items:center;}
+.mnb{display:flex;flex-direction:column;align-items:center;gap:0.15rem;cursor:pointer;padding:0.3rem 0.5rem;border-radius:8px;font-size:0.55rem;color:#8a7a5a;font-weight:600;min-width:52px;transition:all 0.2s;}
+.mnb .mni{font-size:1.3rem;}
+.mnb.on,.mnb:hover{color:#d4a94a;}
+@media(max-width:700px){
+  .side{display:none;}
+  .main{margin-right:0;padding:1rem 0.8rem;padding-bottom:80px;}
+  .mob-nav{display:block;}
+}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:0.9rem;margin-bottom:1.3rem;}
 .card{background:#0f1e35;border:1px solid rgba(212,169,74,0.18);border-radius:13px;padding:1rem;transition:all 0.25s;}
 .card:hover{transform:translateY(-3px);}
@@ -317,6 +328,16 @@ select option{background:#162640;color:#e2d5b8;}
       <div class="sb-sep"></div>
       <div class="sb" style="color:#ef4444" onclick="doLogout()">🚪 خروج</div>
     </aside>
+    <!-- شريط تنقل موبايل -->
+    <div class="mob-nav">
+      <div class="mob-nav-inner">
+        <div class="mnb on" data-s="home"><span class="mni">🏠</span>الرئيسية</div>
+        <div class="mnb" data-s="wallet"><span class="mni">💳</span>المحفظة</div>
+        <div class="mnb" data-s="ref"><span class="mni">👥</span>الإحالات</div>
+        <div class="mnb" data-s="codes"><span class="mni">🎯</span>أكوادي</div>
+        <div class="mnb" data-s="kyc"><span class="mni">🪪</span>التوثيق</div>
+      </div>
+    </div>
     <main class="main">
       <div id="s-home" class="usec">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.3rem;flex-wrap:wrap;gap:0.6rem">
@@ -1125,9 +1146,10 @@ setInterval(async function(){
 async function chkSch(){var today=new Date().toISOString().split('T')[0];var r=await DB.from('schedule_log').select('slot').eq('date',today);var ss=r.data?r.data.map(function(s){return s.slot;}):[]; [1,2,3].forEach(function(s){var el=document.getElementById('ss'+s);if(el)el.innerHTML=ss.includes(s)?'<span class="badge b-g">تم الإرسال ✓</span>':'<span class="badge b-x">في الانتظار</span>';});}
 
 // SIDEBAR
-document.querySelectorAll('.sb[data-s]').forEach(function(el){
+document.querySelectorAll('.sb[data-s],.mnb[data-s]').forEach(function(el){
   el.addEventListener('click',function(){
-    document.querySelectorAll('.sb').forEach(function(s){s.classList.remove('on');});el.classList.add('on');
+    document.querySelectorAll('.sb,.mnb').forEach(function(s){s.classList.remove('on');});
+    document.querySelectorAll('[data-s="'+el.dataset.s+'"]').forEach(function(x){x.classList.add('on');});
     document.querySelectorAll('.usec').forEach(function(s){s.classList.add('hid');});
     var sec=document.getElementById('s-'+el.dataset.s);if(sec)sec.classList.remove('hid');
     if(el.dataset.s==='codes')rCodesH();
