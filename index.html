@@ -410,7 +410,8 @@ select option{background:#162640;color:#e2d5b8;}
       <div id="s-kyc" class="usec hid">
         <div style="font-size:1.25rem;font-weight:800;margin-bottom:1.2rem">🪪 التوثيق</div>
         <div class="panel"><table><tbody>
-          <tr><td style="color:#8a7a5a;padding:0.6rem 0.75rem">رقم الهوية</td><td style="color:#f0c96a;font-weight:700;padding:0.6rem 0.75rem" id="kyc-num">—</td></tr>
+        <tr><td style="color:#8a7a5a;padding:0.6rem 0.75rem">الآيدي الخاص</td><td style="color:#f0c96a;font-weight:800;padding:0.6rem 0.75rem;font-family:monospace;font-size:1rem;letter-spacing:2px" id="my-uid">—</td></tr>
+        <tr><td style="color:#8a7a5a;padding:0.6rem 0.75rem">رقم الهوية</td><td style="color:#f0c96a;font-weight:700;padding:0.6rem 0.75rem" id="kyc-num">—</td></tr>
           <tr><td style="color:#8a7a5a;padding:0.6rem 0.75rem">الحالة</td><td style="padding:0.6rem 0.75rem" id="kyc-st"><span class="badge b-g">موثّق ✓</span></td></tr>
         </tbody></table></div>
       </div>
@@ -542,6 +543,16 @@ select option{background:#162640;color:#e2d5b8;}
       <div class="wrow"><div class="wa" id="dep-addr">—</div><button class="btn bg-ol btn-sm" onclick="cpW()">نسخ</button></div>
       <div class="ibox"><strong>⚠️ مهم</strong>المبلغ: <span id="dep-an" style="color:#f0c96a;font-weight:700">$100</span> — أرسله بالضبط ثم اضغط تأكيد.</div>
       <button class="btn bg-gold btn-full" onclick="subDep()">✅ أرسلت — في انتظار التأكيد</button>
+      <div style="margin-top:0.9rem;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:0.75rem 0.9rem;font-size:0.74rem;line-height:1.8;color:#e2d5b8;">
+        <div style="font-weight:800;color:#ef4444;margin-bottom:0.3rem">⚠️ تعليمات مهمة</div>
+        بعد الإيداع يرجى إرسال <strong style="color:#f0c96a">صورة عن معاملة الإيداع</strong> للدعم لتفعيل الحساب<br>
+        مع ذكر: <strong style="color:#f0c96a">الآيدي</strong> + <strong style="color:#f0c96a">مبلغ الإيداع</strong> + <strong style="color:#f0c96a">الاسم</strong><br>
+        <span style="color:#ef4444;font-weight:700">⛔ أي محاولة انتهاك سوف تتعرض للحظر الفوري</span>
+      </div>
+      <div style="margin-top:0.6rem;background:#0a1628;border:1px solid rgba(212,169,74,0.2);border-radius:9px;padding:0.5rem 0.8rem;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:0.7rem;color:#8a7a5a">الآيدي الخاص بك</span>
+        <span style="font-family:monospace;font-weight:800;color:#f0c96a;font-size:0.85rem" id="dep-uid">—</span>
+      </div>
     </div>
   </div>
 </div>
@@ -669,6 +680,7 @@ async function doLogin(){
   if(!em||!pw){tst('err','خطأ','أدخل البريد وكلمة المرور');return;}
   var r=await DB.from('users').select('*').eq('email',em).eq('password',pw).single();
   if(r.error||!r.data){tst('err','خطأ','البريد أو كلمة المرور غير صحيحة');return;}
+  if(r.data.status==='suspended'){tst('err','الحساب محظور 🚫','تواصل مع الدعم');return;}
   ME=r.data;ADM=false;
   tst('ok','مرحباً بك 👋','تم تسجيل الدخول');
   setTimeout(function(){go('user');},500);
@@ -708,6 +720,10 @@ async function renderAll(){
   if(r.data)ME=r.data;
   document.getElementById('u-nm').textContent=ME.name;
   document.getElementById('kyc-num').textContent=ME.kyc_id||'—';
+  // عرض الآيدي الخاص (أول 8 أحرف من الـ UUID)
+  var uid8=ME.id?ME.id.split('-')[0].toUpperCase():'—';
+  var myuid=document.getElementById('my-uid');if(myuid)myuid.textContent='#'+uid8;
+  var depuid=document.getElementById('dep-uid');if(depuid)depuid.textContent='#'+uid8;
   document.getElementById('wd-av').textContent='$'+(ME.profit_bal||0).toFixed(2);
   document.getElementById('ref-lnk').textContent=location.origin+location.pathname+'?ref='+ME.ref_code;
   var rc=document.getElementById('my-rcode');if(rc)rc.textContent=ME.ref_code||'—';
@@ -909,8 +925,9 @@ async function loadU(q){
   var r=await qr.limit(50);var users=r.data||[];var el=document.getElementById('adm-ul');
   if(!users.length){el.innerHTML='<div style="text-align:center;padding:2rem;color:#8a7a5a">لا يوجد مستخدمون</div>';return;}
   el.innerHTML=users.map(function(u){
-    return'<div class="urow"><div class="av">'+u.name[0]+'</div><div style="flex:1;min-width:90px"><div class="un">'+u.name+'</div><div class="ue">'+u.email+'</div><div class="ue">كود الإحالة: <strong style="color:#d4a94a">'+u.ref_code+'</strong></div></div><div style="font-weight:700;color:#f0c96a;font-size:0.79rem">$'+((u.balance||0)+(u.profit_bal||0)).toFixed(2)+'</div><span class="badge '+(u.status==='active'?'b-g':u.status==='suspended'?'b-r':'b-y')+'">'+(u.status==='active'?'نشط':u.status==='suspended'?'معطّل':'معلق')+'</span><div class="uacts"><button class="btn bg-gold btn-sm" onclick="qSend(\''+u.id+'\')">إرسال كود</button>'
-    +(u.status==='pending'?'<button class="btn bg-green btn-sm" onclick="activateU(\''+u.id+'\',\''+u.name+'\')">تفعيل</button>':u.status==='active'?'<button class="btn bg-red btn-sm" onclick="togU(\''+u.id+'\',\'active\')">تعطيل</button>':'<button class="btn bg-green btn-sm" onclick="togU(\''+u.id+'\',\'suspended\')">إعادة تفعيل</button>')
+    var uid8=u.id?u.id.split('-')[0].toUpperCase():'—';
+    return'<div class="urow"><div class="av">'+u.name[0]+'</div><div style="flex:1;min-width:90px"><div class="un">'+u.name+'</div><div class="ue">'+u.email+'</div><div class="ue">🪪 آيدي: <strong style="color:#f0c96a;font-family:monospace">#'+uid8+'</strong> &nbsp;|&nbsp; كود الإحالة: <strong style="color:#d4a94a">'+u.ref_code+'</strong></div></div><div style="font-weight:700;color:#f0c96a;font-size:0.79rem">$'+((u.balance||0)+(u.profit_bal||0)).toFixed(2)+'</div><span class="badge '+(u.status==='active'?'b-g':u.status==='suspended'?'b-r':'b-y')+'">'+(u.status==='active'?'نشط':u.status==='suspended'?'محظور':'معلق')+'</span><div class="uacts"><button class="btn bg-gold btn-sm" onclick="qSend(\''+u.id+'\')">إرسال كود</button>'
+    +(u.status==='pending'?'<button class="btn bg-green btn-sm" onclick="activateU(\''+u.id+'\',\''+u.name+'\')">تفعيل</button>':u.status==='active'?'<button class="btn bg-red btn-sm" onclick="banU(\''+u.id+'\',\''+u.name+'\')">🚫 حظر</button>':'<button class="btn bg-green btn-sm" onclick="togU(\''+u.id+'\',\'suspended\')">رفع الحظر</button>')
     +'</div></div>';
   }).join('');
 }
@@ -925,6 +942,13 @@ async function activateU(id,name){
   await DB.from('users').update({status:'active',balance:newBal,bonus:newBonus}).eq('id',id);
   await DB.from('transactions').insert([{user_id:id,type:'هدية تفعيل الحساب 🎁',amount:gift,network:'—',status:'مكتمل',created_at:new Date().toISOString()}]);
   tst('ok','تم تفعيل '+name+' ✅','أُضيف $'+gift+' هدية ترحيب لرصيده');
+  loadU();
+}
+
+async function banU(id,name){
+  if(!confirm('هل تريد حظر '+name+'؟ لن يتمكن من الدخول للمنصة.'))return;
+  await DB.from('users').update({status:'suspended'}).eq('id',id);
+  tst('err','تم الحظر 🚫',name+' محظور الآن');
   loadU();
 }
 
