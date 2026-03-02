@@ -481,8 +481,15 @@ select option{background:#162640;color:#e2d5b8;}
     </div>
     <!-- REF CODES -->
     <div id="at-refs" class="asec">
-      <div style="font-size:1.2rem;font-weight:800;margin-bottom:1rem">🔗 أكواد الإحالة الخاصة بالمستخدمين</div>
-      <div class="panel"><div class="tbl"><table><thead><tr><th>المستخدم</th><th>كود الإحالة</th><th>إجمالي الإيداع</th><th>تاريخ التفعيل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="ref-tbl"><tr class="et"><td colspan="6">لا توجد بيانات</td></tr></tbody></table></div></div>
+      <div style="font-size:1.2rem;font-weight:800;margin-bottom:1rem">🔗 أكواد الإحالة</div>
+      <div class="panel">
+        <div class="pt">كل المستخدمين وأكوادهم</div>
+        <div class="tbl"><table><thead><tr><th>المستخدم</th><th>كود الإحالة</th><th>الآيدي</th><th>الرصيد</th><th>تاريخ التسجيل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="ref-tbl"><tr class="et"><td colspan="7">لا توجد بيانات</td></tr></tbody></table></div>
+      </div>
+      <div class="panel" style="margin-top:1rem">
+        <div class="pt">المستخدمون المُسجَّلون عبر الإحالة</div>
+        <div class="tbl"><table><thead><tr><th>المستخدم (الاسم / الإيميل / الآيدي)</th><th>أُحيل من</th><th>الإيداع</th><th>تاريخ التسجيل</th><th>الحالة</th></tr></thead><tbody id="ref-detail-sec"><tr class="et"><td colspan="5">لا توجد إحالات</td></tr></tbody></table></div>
+      </div>
     </div>
     <!-- DEPS -->
     <div id="at-deps" class="asec">
@@ -720,13 +727,18 @@ async function renderAll(){
   if(r.data)ME=r.data;
   document.getElementById('u-nm').textContent=ME.name;
   document.getElementById('kyc-num').textContent=ME.kyc_id||'—';
-  // عرض الآيدي الخاص (أول 8 أحرف من الـ UUID)
   var uid8=ME.id?ME.id.split('-')[0].toUpperCase():'—';
   var myuid=document.getElementById('my-uid');if(myuid)myuid.textContent='#'+uid8;
   var depuid=document.getElementById('dep-uid');if(depuid)depuid.textContent='#'+uid8;
+  // إذا لم يكن لديه كود إحالة أنشئ له واحداً تلقائياً
+  if(!ME.ref_code){
+    var newRc='REF'+Math.random().toString(36).substr(2,6).toUpperCase();
+    await DB.from('users').update({ref_code:newRc}).eq('id',ME.id);
+    ME.ref_code=newRc;
+  }
   document.getElementById('wd-av').textContent='$'+(ME.profit_bal||0).toFixed(2);
   document.getElementById('ref-lnk').textContent=location.origin+location.pathname+'?ref='+ME.ref_code;
-  var rc=document.getElementById('my-rcode');if(rc)rc.textContent=ME.ref_code||'—';
+  var rc=document.getElementById('my-rcode');if(rc)rc.textContent=ME.ref_code;
   rCards();
   await loadTC();renderCG();
   rWallet();rRef();rHist();
@@ -961,11 +973,24 @@ async function togU(id,cur){
 
 // أكواد الإحالة الخاصة بكل مستخدم
 async function loadRefs(){
-  var r=await DB.from('users').select('id,name,ref_code,balance,status,join_date').order('join_date',{ascending:false}).limit(50);
+  var r=await DB.from('users').select('id,name,email,ref_code,balance,status,join_date,ref_by').order('join_date',{ascending:false}).limit(100);
   var users=r.data||[];
+  // بناء خريطة المستخدمين
+  var umap={};users.forEach(function(u){umap[u.id]=u;});
+  // جدول أكواد الإحالة
   document.getElementById('ref-tbl').innerHTML=users.length?users.map(function(u){
-    return'<tr><td><strong>'+u.name+'</strong></td><td style="font-family:monospace;color:#f0c96a;font-weight:700;letter-spacing:3px">'+u.ref_code+'</td><td style="color:#22c55e;font-weight:700">$'+(u.balance||0).toFixed(2)+'</td><td>'+fd(u.join_date)+'</td><td><span class="badge '+(u.status==='active'?'b-g':u.status==='suspended'?'b-r':'b-y')+'">'+(u.status==='active'?'نشط':u.status==='suspended'?'معطّل':'معلق')+'</span></td><td><button class="btn bg-red btn-sm" onclick="togU(\''+u.id+'\',\''+(u.status==='active'?'active':'suspended')+'\')">'+( u.status==='active'?'تعطيل':'تفعيل')+'</button></td></tr>';
-  }).join(''):'<tr class="et"><td colspan="6">لا توجد بيانات</td></tr>';
+    var uid8=u.id?u.id.split('-')[0].toUpperCase():'—';
+    return'<tr><td><strong>'+u.name+'</strong><br><span style="font-size:0.65rem;color:#8a7a5a">'+u.email+'</span></td><td style="font-family:monospace;color:#f0c96a;font-weight:700;letter-spacing:2px">'+(u.ref_code||'—')+'</td><td style="font-family:monospace;color:#8a7a5a;font-size:0.75rem">#'+uid8+'</td><td style="color:#22c55e;font-weight:700">$'+(u.balance||0).toFixed(2)+'</td><td>'+fd(u.join_date)+'</td><td><span class="badge '+(u.status==='active'?'b-g':u.status==='suspended'?'b-r':'b-y')+'">'+(u.status==='active'?'نشط':u.status==='suspended'?'محظور':'معلق')+'</span></td><td><button class="btn bg-red btn-sm" onclick="banU(\''+u.id+'\',\''+u.name+'\')">🚫 حظر</button></td></tr>';
+  }).join(''):'<tr class="et"><td colspan="7">لا توجد بيانات</td></tr>';
+  // جدول المُحالين لكل شخص
+  var refSection=document.getElementById('ref-detail-sec');
+  if(!refSection)return;
+  var referred=users.filter(function(u){return u.ref_by;});
+  refSection.innerHTML=referred.length?referred.map(function(u){
+    var refBy=umap[u.ref_by];
+    var uid8=u.id?u.id.split('-')[0].toUpperCase():'—';
+    return'<tr><td><strong>'+u.name+'</strong><br><span style="font-size:0.65rem;color:#8a7a5a">'+u.email+'</span><br><span style="font-size:0.65rem;font-family:monospace;color:#f0c96a">#'+uid8+'</span></td><td style="color:#d4a94a;font-weight:700">'+(refBy?refBy.name:'—')+'</td><td style="color:#22c55e;font-weight:700">$'+(u.balance||0).toFixed(2)+'</td><td>'+fd(u.join_date)+'</td><td><span class="badge '+(u.status==='active'?'b-g':u.status==='suspended'?'b-r':'b-y')+'">'+(u.status==='active'?'نشط':u.status==='suspended'?'محظور':'معلق')+'</span></td></tr>';
+  }).join(''):'<tr class="et"><td colspan="5">لا توجد إحالات</td></tr>';
 }
 
 async function sendCode(){
