@@ -948,18 +948,23 @@ function calcF(){var a=parseFloat(document.getElementById('wd-am').value)||0;doc
 async function subWd(){
   if(!ME)return;
   var amt=parseFloat(document.getElementById('wd-am').value),wl=document.getElementById('wd-wl').value.trim();
+  var wnet=window._wNet||'';
   if(!amt||isNaN(amt)){tst('err','خطأ','أدخل المبلغ المطلوب سحبه');return;}
+  if(!wnet){tst('err','خطأ','اختر الشبكة أولاً (TRON أو Ethereum)');return;}
   var pr=parseFloat((ME.profit_bal||0).toFixed(2));
   if(pr<C.mw){tst('err','رصيد غير كافٍ ❌','رصيد أرباحك $'+pr.toFixed(2)+' — يجب أن يكون أكثر من $'+C.mw);return;}
   if(amt<C.mw){tst('err','أقل من الحد الأدنى ❌','الحد الأدنى للسحب $'+C.mw);return;}
   if(amt>pr){tst('err','رصيد غير كافٍ ❌','رصيد أرباحك المتاح: $'+pr.toFixed(2));return;}
   if(!wl){tst('err','خطأ','أدخل عنوان محفظتك');return;}
-  // خصم المبلغ من الأرباح فوراً
+  var netLabel=wnet==='tron'?'TRON TRC-20':'Ethereum ERC-20';
   var newPr=parseFloat((pr-amt).toFixed(2));
   await DB.from('users').update({profit_bal:newPr}).eq('id',ME.id);
   ME.profit_bal=newPr;
-  await DB.from('withdrawals').insert([{user_id:ME.id,user_name:ME.name,amount:amt,wallet:wl,status:'pending',created_at:new Date().toISOString()}]);
-  await DB.from('transactions').insert([{user_id:ME.id,type:'سحب',amount:amt,network:'—',status:'معلق',created_at:new Date().toISOString()}]);
+  var ins=await DB.from('withdrawals').insert([{user_id:ME.id,user_name:ME.name,amount:amt,wallet:wl,network:netLabel,status:'pending',created_at:new Date().toISOString()}]);
+  if(ins.error){tst('err','خطأ في الإرسال',ins.error.message);return;}
+  await DB.from('transactions').insert([{user_id:ME.id,type:'سحب',amount:amt,network:netLabel,status:'معلق',created_at:new Date().toISOString()}]);
+  window._wNet=null;
+  document.querySelectorAll('#wn-tron,#wn-eth').forEach(function(x){x.classList.remove('on');});
   closeM('m-wd');
   document.getElementById('wd-am').value='';
   document.getElementById('wd-wl').value='';
