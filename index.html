@@ -954,7 +954,12 @@ async function subWd(){
   var pr=parseFloat((ME.profit_bal||0).toFixed(2));
   if(pr<C.mw){tst('err','رصيد غير كافٍ ❌','رصيد أرباحك $'+pr.toFixed(2)+' — يجب أن يكون أكثر من $'+C.mw);return;}
   if(amt<C.mw){tst('err','أقل من الحد الأدنى ❌','الحد الأدنى للسحب $'+C.mw);return;}
-  if(amt>pr){tst('err','رصيد غير كافٍ ❌','رصيد أرباحك المتاح: $'+pr.toFixed(2));return;}
+  // قاعدة 40 يوم: إذا أراد سحب من الرصيد الأساسي يجب التواصل مع الدعم
+  if(amt>pr){
+    tst('err','تواصل مع الدعم 💬','لسحب الرصيد الأساسي يجب التواصل مع الدعم أولاً');
+    setTimeout(function(){openM('m-sup');},1200);
+    return;
+  }
   if(!wl){tst('err','خطأ','أدخل عنوان محفظتك');return;}
   var netLabel=wnet==='tron'?'TRON TRC-20':'Ethereum ERC-20';
   var newPr=parseFloat((pr-amt).toFixed(2));
@@ -1002,11 +1007,34 @@ async function loadU(q){
     var uid8=u.id?u.id.split('-')[0].toUpperCase():'—';
     return'<div class="urow"><div class="av">'+u.name[0]+'</div><div style="flex:1;min-width:90px"><div class="un">'+u.name+'</div><div class="ue">'+u.email+'</div><div class="ue">🪪 آيدي: <strong style="color:#f0c96a;font-family:monospace">#'+uid8+'</strong> &nbsp;|&nbsp; كود الإحالة: <strong style="color:#d4a94a">'+u.ref_code+'</strong></div></div><div style="font-weight:700;color:#f0c96a;font-size:0.79rem">$'+((u.balance||0)+(u.profit_bal||0)).toFixed(2)+'</div><span class="badge '+(u.status==='active'?'b-g':u.status==='suspended'?'b-r':'b-y')+'">'+(u.status==='active'?'نشط':u.status==='suspended'?'محظور':'معلق')+'</span><div class="uacts"><button class="btn bg-gold btn-sm" onclick="qSend(\''+u.id+'\')">إرسال كود</button>'
     +(u.status==='pending'?'<button class="btn bg-green btn-sm" onclick="activateU(\''+u.id+'\',\''+u.name+'\')">تفعيل</button>':u.status==='active'?'<button class="btn bg-red btn-sm" onclick="banU(\''+u.id+'\',\''+u.name+'\')">🚫 حظر</button>':'<button class="btn bg-green btn-sm" onclick="togU(\''+u.id+'\',\'suspended\')">رفع الحظر</button>')
+    +'<button class="btn bg-ol btn-sm" onclick="adjBal(\''+u.id+'\',\''+u.name+'\','+((u.balance||0)+(u.profit_bal||0)).toFixed(2)+')">✏️ تعديل رصيد</button>'
     +'</div></div>';
   }).join('');
 }
 
-// تفعيل المستخدم + إضافة هدية مباشرة
+// تعديل رصيد مشترك يدوياً
+async function adjBal(uid,name,curBal){
+  var dir=prompt('اختر نوع التعديل:\n1 = إضافة رصيد\n2 = خصم رصيد\n\nأدخل 1 أو 2:');
+  if(!dir||!(dir==='1'||dir==='2'))return;
+  var amt=parseFloat(prompt((dir==='1'?'كم تريد إضافة':'كم تريد خصم')+' من رصيد '+name+'؟\nالرصيد الحالي: $'+curBal));
+  if(!amt||isNaN(amt)||amt<=0){tst('err','خطأ','أدخل مبلغاً صحيحاً');return;}
+  var note=prompt('سبب التعديل (اختياري):',dir==='1'?'إضافة رصيد من الإدارة':'خصم رصيد من الإدارة')||'تعديل يدوي من الإدارة';
+  var u=await DB.from('users').select('balance,profit_bal').eq('id',uid).single();
+  var ba=u.data?.balance||0;var pr=u.data?.profit_bal||0;
+  var newBa,newPr,type,finalAmt;
+  if(dir==='1'){newBa=parseFloat((ba+amt).toFixed(2));newPr=pr;type='إضافة رصيد 📥';finalAmt=amt;}
+  else{
+    var total=parseFloat((ba+pr).toFixed(2));
+    if(amt>total){tst('err','خطأ','المبلغ أكبر من الرصيد الكلي $'+total);return;}
+    if(amt<=pr){newPr=parseFloat((pr-amt).toFixed(2));newBa=ba;}
+    else{newPr=0;newBa=parseFloat((ba-(amt-pr)).toFixed(2));}
+    type='خصم رصيد 📤';finalAmt=amt;
+  }
+  await DB.from('users').update({balance:newBa,profit_bal:newPr}).eq('id',uid);
+  await DB.from('transactions').insert([{user_id:uid,type:type+' — '+note,amount:finalAmt,network:'—',status:'مكتمل',created_at:new Date().toISOString()}]);
+  tst('ok','تم التعديل ✅',(dir==='1'?'تمت إضافة':'تم خصم')+' $'+finalAmt+' '+(dir==='1'?'لـ':'من')+name);
+  loadU();
+}
 async function activateU(id,name){
   var r=await DB.from('users').select('balance,bonus,ref_code').eq('id',id).single();
   // هدية التفعيل = $10 مباشرة عند التفعيل
