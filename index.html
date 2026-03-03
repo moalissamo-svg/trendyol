@@ -528,7 +528,7 @@ select option{background:#162640;color:#e2d5b8;}
     <!-- WDS -->
     <div id="at-wds" class="asec">
       <div style="font-size:1.2rem;font-weight:800;margin-bottom:1rem">💸 السحوبات</div>
-      <div class="panel"><div class="tbl"><table><thead><tr><th>المستخدم</th><th>الآيدي</th><th>الإيميل</th><th>المبلغ</th><th>بعد الرسوم</th><th>الشبكة</th><th>عنوان المحفظة</th><th>التاريخ</th><th>الحالة</th></tr></thead><tbody id="adm-wt"><tr class="et"><td colspan="9">لا توجد طلبات</td></tr></tbody></table></div></div>
+      <div class="panel"><div class="tbl"><table><thead><tr><th>المستخدم</th><th>الآيدي</th><th>الإيميل</th><th>المبلغ</th><th>بعد الرسوم</th><th>الشبكة وعنوان المحفظة</th><th>التاريخ</th><th>الحالة</th></tr></thead><tbody id="adm-wt"><tr class="et"><td colspan="8">لا توجد طلبات</td></tr></tbody></table></div></div>
     </div>
     <!-- KYC -->
     <div id="at-kyc" class="asec">
@@ -614,12 +614,7 @@ select option{background:#162640;color:#e2d5b8;}
     </div>
     <div class="ibox"><strong>الرصيد المتاح للسحب</strong><span style="font-size:1.2rem;font-weight:900;color:#f0c96a" id="wd-av">$0</span></div>
     <div class="fld"><label>المبلغ المطلوب سحبه</label><input type="number" id="wd-am" placeholder="الحد الأدنى $50" oninput="calcF()"></div>
-    <div style="font-size:0.74rem;color:#8a7a5a;margin-bottom:0.4rem">اختر الشبكة</div>
-    <div class="nets" style="margin-bottom:0.9rem">
-      <div class="net" id="wn-tron" onclick="selWN('tron',this)">🔵 TRON TRC-20</div>
-      <div class="net" id="wn-eth" onclick="selWN('eth',this)">💠 Ethereum ERC-20</div>
-    </div>
-    <div class="fld"><label>عنوان محفظتك</label><input id="wd-wl" placeholder="أدخل عنوان محفظتك"></div>
+    <div class="fld"><label>عنوان محفظتك (TRC-20 أو ERC-20)</label><input id="wd-wl" placeholder="أدخل عنوان محفظتك"></div>
     <div class="ibox"><strong>رسوم السحب 6%</strong> — ستستلم: <span id="wd-af" style="color:#f0c96a;font-weight:700">$0.00</span></div>
     <div class="ibox" style="font-size:0.75rem;color:#8a7a5a">⚠️ الحد الأدنى للسحب $50 — سيتم معالجة طلبك خلال 24 ساعة</div>
     <button class="btn bg-gold btn-full mt1" onclick="subWd()">📤 تأكيد طلب السحب</button>
@@ -953,8 +948,6 @@ function calcF(){var a=parseFloat(document.getElementById('wd-am').value)||0;doc
 async function subWd(){
   if(!ME)return;
   var amt=parseFloat(document.getElementById('wd-am').value),wl=document.getElementById('wd-wl').value.trim();
-  var wnet=window._wNet||'';
-  if(!wnet){tst('err','خطأ','اختر الشبكة أولاً (TRON أو Ethereum)');return;}
   if(!amt||isNaN(amt)){tst('err','خطأ','أدخل المبلغ المطلوب سحبه');return;}
   var pr=parseFloat((ME.profit_bal||0).toFixed(2));
   if(pr<C.mw){tst('err','رصيد غير كافٍ ❌','رصيد أرباحك $'+pr.toFixed(2)+' — يجب أن يكون أكثر من $'+C.mw);return;}
@@ -965,8 +958,7 @@ async function subWd(){
   var newPr=parseFloat((pr-amt).toFixed(2));
   await DB.from('users').update({profit_bal:newPr}).eq('id',ME.id);
   ME.profit_bal=newPr;
-  var netLabel=wnet==='tron'?'TRON TRC-20':'Ethereum ERC-20';
-  await DB.from('withdrawals').insert([{user_id:ME.id,user_name:ME.name,amount:amt,wallet:wl,network:netLabel,status:'pending',created_at:new Date().toISOString()}]);
+  await DB.from('withdrawals').insert([{user_id:ME.id,user_name:ME.name,amount:amt,wallet:wl,status:'pending',created_at:new Date().toISOString()}]);
   await DB.from('transactions').insert([{user_id:ME.id,type:'سحب',amount:amt,network:'—',status:'معلق',created_at:new Date().toISOString()}]);
   closeM('m-wd');
   document.getElementById('wd-am').value='';
@@ -1154,8 +1146,10 @@ async function loadW(){
     +'<td style="font-size:0.72rem;color:#8a7a5a">'+(u.email||'—')+'</td>'
     +'<td style="color:#f0c96a;font-weight:700">$'+w.amount+'</td>'
     +'<td style="color:#22c55e">$'+(w.amount*(1-C.fee/100)).toFixed(2)+'</td>'
-    +'<td><span class="badge '+(w.network&&w.network.includes('TRON')?'b-y':'b-g')+'">'+(w.network||'—')+'</span></td>'
-    +'<td style="font-size:0.65rem;font-family:monospace;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+w.wallet+'">'+w.wallet+'</td>'
+    +'<td>'
+    +'<div style="font-size:0.7rem;font-weight:700;color:'+(w.network&&w.network.includes('TRON')?'#f0c96a':'#60a5fa')+';margin-bottom:0.2rem">'+(w.network||'غير محدد')+'</div>'
+    +'<div style="font-size:0.62rem;font-family:monospace;color:#8a7a5a;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+w.wallet+'">'+w.wallet+'</div>'
+    +'</td>'
     +'<td>'+fd(w.created_at)+'</td>'
     +'<td>'+(w.status==='pending'
       ?'<div style="display:flex;gap:0.3rem;flex-wrap:wrap"><button class="btn bg-green btn-sm" onclick="appW(\''+w.id+'\')">✅ موافقة</button><button class="btn bg-red btn-sm" onclick="rejW(\''+w.id+'\',\''+w.user_id+'\','+w.amount+')">❌ رفض</button></div>'
@@ -1272,7 +1266,6 @@ function showRef(){
   var rl=document.getElementById('m-rlnk');if(rl)rl.textContent=location.origin+location.pathname+'?ref='+(ME.ref_code||'');
   openM('m-ref');
 }
-function selWN(n,el){window._wNet=n;document.querySelectorAll('#wn-tron,#wn-eth').forEach(function(x){x.classList.remove('on');});el.classList.add('on');}
 function cpRCode2(){navigator.clipboard.writeText(ME.ref_code||'');tst('info','تم النسخ','كود الإحالة مُنسخ');}
 function cpRef2(){navigator.clipboard.writeText(location.origin+location.pathname+'?ref='+(ME.ref_code||''));tst('info','تم النسخ','رابط الإحالة مُنسخ');}
 function tst(type,title,text){var icons={ok:'✅',err:'❌',info:'ℹ️'};var el=document.createElement('div');el.className='tst '+type;el.innerHTML='<div style="font-size:1.1rem">'+(icons[type]||'📢')+'</div><div><div class="tt">'+title+'</div><div class="tp">'+text+'</div></div>';document.getElementById('toasts').appendChild(el);setTimeout(function(){el.style.animation='tOut 0.3s ease forwards';setTimeout(function(){el.remove();},300);},4500);return el;}
