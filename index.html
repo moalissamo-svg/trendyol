@@ -553,6 +553,27 @@ select option{background:#162640;color:#e2d5b8;}
   </div>
 </div>
 <!-- MODALS -->
+<div class="ov" id="m-adj">
+  <div class="modal"><button class="mc" onclick="closeM('m-adj')">✕</button>
+    <div class="mt-m">✏️ تعديل رصيد المستخدم</div>
+    <input type="hidden" id="adj-uid">
+    <div class="ibox" style="text-align:center">
+      <div style="font-size:0.75rem;color:#8a7a5a">المستخدم</div>
+      <div style="font-weight:800;color:#f0c96a;font-size:1rem" id="adj-name">—</div>
+      <div style="font-size:0.75rem;color:#8a7a5a;margin-top:0.3rem">الرصيد الحالي: <strong style="color:#22c55e" id="adj-cur">$0</strong></div>
+    </div>
+    <div class="fld">
+      <label>نوع التعديل</label>
+      <select id="adj-dir" style="width:100%;padding:0.55rem 0.8rem;background:#0a1628;border:1.5px solid rgba(212,169,74,0.25);border-radius:10px;color:#e2d5b8;font-family:'Tajawal',sans-serif;font-size:0.85rem">
+        <option value="add">📥 إضافة رصيد</option>
+        <option value="sub">📤 خصم رصيد</option>
+      </select>
+    </div>
+    <div class="fld"><label>المبلغ ($)</label><input type="number" id="adj-amt" placeholder="أدخل المبلغ"></div>
+    <div class="fld"><label>السبب</label><input id="adj-note" placeholder="مثال: تعويض، خطأ، مصروف..."></div>
+    <button class="btn bg-gold btn-full mt1" onclick="confAdj()">✅ تأكيد التعديل</button>
+  </div>
+</div>
 <div class="ov" id="m-dep">
   <div class="modal"><button class="mc" onclick="closeM('m-dep')">✕</button>
     <div class="mt-m">💳 إيداع رصيد</div>
@@ -1014,25 +1035,36 @@ async function loadU(q){
 
 // تعديل رصيد مشترك يدوياً
 async function adjBal(uid,name,curBal){
-  var dir=prompt('اختر نوع التعديل:\n1 = إضافة رصيد\n2 = خصم رصيد\n\nأدخل 1 أو 2:');
-  if(!dir||!(dir==='1'||dir==='2'))return;
-  var amt=parseFloat(prompt((dir==='1'?'كم تريد إضافة':'كم تريد خصم')+' من رصيد '+name+'؟\nالرصيد الحالي: $'+curBal));
+  document.getElementById('adj-uid').value=uid;
+  document.getElementById('adj-name').textContent=name;
+  document.getElementById('adj-cur').textContent='$'+parseFloat(curBal).toFixed(2);
+  document.getElementById('adj-amt').value='';
+  document.getElementById('adj-note').value='';
+  document.getElementById('adj-dir').value='add';
+  openM('m-adj');
+}
+async function confAdj(){
+  var uid=document.getElementById('adj-uid').value;
+  var amt=parseFloat(document.getElementById('adj-amt').value);
+  var dir=document.getElementById('adj-dir').value;
+  var note=document.getElementById('adj-note').value||'تعديل يدوي من الإدارة';
   if(!amt||isNaN(amt)||amt<=0){tst('err','خطأ','أدخل مبلغاً صحيحاً');return;}
-  var note=prompt('سبب التعديل (اختياري):',dir==='1'?'إضافة رصيد من الإدارة':'خصم رصيد من الإدارة')||'تعديل يدوي من الإدارة';
   var u=await DB.from('users').select('balance,profit_bal').eq('id',uid).single();
   var ba=u.data?.balance||0;var pr=u.data?.profit_bal||0;
-  var newBa,newPr,type,finalAmt;
-  if(dir==='1'){newBa=parseFloat((ba+amt).toFixed(2));newPr=pr;type='إضافة رصيد 📥';finalAmt=amt;}
-  else{
+  var newBa,newPr,type;
+  if(dir==='add'){
+    newBa=parseFloat((ba+amt).toFixed(2));newPr=pr;type='إضافة رصيد 📥';
+  }else{
     var total=parseFloat((ba+pr).toFixed(2));
-    if(amt>total){tst('err','خطأ','المبلغ أكبر من الرصيد الكلي $'+total);return;}
+    if(amt>total){tst('err','خطأ','المبلغ أكبر من الرصيد $'+total.toFixed(2));return;}
     if(amt<=pr){newPr=parseFloat((pr-amt).toFixed(2));newBa=ba;}
     else{newPr=0;newBa=parseFloat((ba-(amt-pr)).toFixed(2));}
-    type='خصم رصيد 📤';finalAmt=amt;
+    type='خصم رصيد 📤';
   }
   await DB.from('users').update({balance:newBa,profit_bal:newPr}).eq('id',uid);
-  await DB.from('transactions').insert([{user_id:uid,type:type+' — '+note,amount:finalAmt,network:'—',status:'مكتمل',created_at:new Date().toISOString()}]);
-  tst('ok','تم التعديل ✅',(dir==='1'?'تمت إضافة':'تم خصم')+' $'+finalAmt+' '+(dir==='1'?'لـ':'من')+name);
+  await DB.from('transactions').insert([{user_id:uid,type:type+' — '+note,amount:amt,network:'—',status:'مكتمل',created_at:new Date().toISOString()}]);
+  closeM('m-adj');
+  tst('ok','تم التعديل ✅',(dir==='add'?'أُضيف':'خُصم')+' $'+amt);
   loadU();
 }
 async function activateU(id,name){
