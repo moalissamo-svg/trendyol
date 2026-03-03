@@ -528,7 +528,7 @@ select option{background:#162640;color:#e2d5b8;}
     <!-- WDS -->
     <div id="at-wds" class="asec">
       <div style="font-size:1.2rem;font-weight:800;margin-bottom:1rem">💸 السحوبات</div>
-      <div class="panel"><div class="tbl"><table><thead><tr><th>المستخدم</th><th>المبلغ</th><th>بعد الرسوم</th><th>المحفظة</th><th>التاريخ</th><th>إجراء</th></tr></thead><tbody id="adm-wt"><tr class="et"><td colspan="6">لا توجد طلبات</td></tr></tbody></table></div></div>
+      <div class="panel"><div class="tbl"><table><thead><tr><th>المستخدم</th><th>الآيدي</th><th>الإيميل</th><th>المبلغ</th><th>بعد الرسوم</th><th>عنوان المحفظة</th><th>التاريخ</th><th>الحالة</th></tr></thead><tbody id="adm-wt"><tr class="et"><td colspan="8">لا توجد طلبات</td></tr></tbody></table></div></div>
     </div>
     <!-- KYC -->
     <div id="at-kyc" class="asec">
@@ -941,13 +941,15 @@ async function subWd(){
   if(!ME)return;
   var amt=parseFloat(document.getElementById('wd-am').value),wl=document.getElementById('wd-wl').value.trim();
   if(!amt||isNaN(amt)){tst('err','خطأ','أدخل المبلغ المطلوب سحبه');return;}
-  if(amt<C.mw){tst('err','أقل من الحد الأدنى ❌','الحد الأدنى للسحب $'+C.mw);return;}
   var pr=parseFloat((ME.profit_bal||0).toFixed(2));
-  if(pr<C.mw){tst('err','رصيد أرباح غير كافٍ ❌','رصيد أرباحك $'+pr.toFixed(2)+' — الحد الأدنى $'+C.mw);return;}
+  if(pr<C.mw){tst('err','رصيد غير كافٍ ❌','رصيد أرباحك $'+pr.toFixed(2)+' — يجب أن يكون أكثر من $'+C.mw);return;}
+  if(amt<C.mw){tst('err','أقل من الحد الأدنى ❌','الحد الأدنى للسحب $'+C.mw);return;}
   if(amt>pr){tst('err','رصيد غير كافٍ ❌','رصيد أرباحك المتاح: $'+pr.toFixed(2));return;}
   if(!wl){tst('err','خطأ','أدخل عنوان محفظتك');return;}
+  // خصم المبلغ من الأرباح فوراً
   var newPr=parseFloat((pr-amt).toFixed(2));
   await DB.from('users').update({profit_bal:newPr}).eq('id',ME.id);
+  ME.profit_bal=newPr;
   await DB.from('withdrawals').insert([{user_id:ME.id,user_name:ME.name,amount:amt,wallet:wl,status:'pending',created_at:new Date().toISOString()}]);
   await DB.from('transactions').insert([{user_id:ME.id,type:'سحب',amount:amt,network:'—',status:'معلق',created_at:new Date().toISOString()}]);
   closeM('m-wd');
@@ -1121,12 +1123,53 @@ async function confD(id,uid,amt){
 }
 
 async function loadW(){
-  var r=await DB.from('withdrawals').select('*').order('created_at',{ascending:false}).limit(50);var wds=r.data||[];
-  document.getElementById('adm-wt').innerHTML=wds.length?wds.map(function(w){return'<tr><td>'+w.user_name+'</td><td style="color:#f0c96a;font-weight:700">$'+w.amount+'</td><td style="color:#22c55e">$'+(w.amount*(1-C.fee/100)).toFixed(2)+'</td><td style="font-size:0.65rem;font-family:monospace">'+w.wallet+'</td><td>'+fd(w.created_at)+'</td><td>'+(w.status==='pending'?'<div style="display:flex;gap:0.25rem"><button class="btn bg-gold btn-sm" onclick="appW(\''+w.id+'\')">قبول</button><button class="btn bg-red btn-sm" onclick="rejW(\''+w.id+'\',\''+w.user_id+'\','+w.amount+')">رفض</button></div>':'<span class="badge '+(w.status==='approved'?'b-g':'b-r')+'">'+(w.status==='approved'?'مقبول':'مرفوض')+'</span>')+'</td></tr>';}).join(''):'<tr class="et"><td colspan="6">لا توجد طلبات</td></tr>';
+  var r=await DB.from('withdrawals').select('*').order('created_at',{ascending:false}).limit(50);
+  var wds=r.data||[];
+  if(!wds.length){document.getElementById('adm-wt').innerHTML='<tr class="et"><td colspan="8">لا توجد طلبات</td></tr>';return;}
+  var uids=[...new Set(wds.map(function(w){return w.user_id;}))];
+  var ur=await DB.from('users').select('id,email').in('id',uids);
+  var umap={};(ur.data||[]).forEach(function(u){umap[u.id]=u;});
+  document.getElementById('adm-wt').innerHTML=wds.map(function(w){
+    var u=umap[w.user_id]||{};
+    var uid8=w.user_id?w.user_id.split('-')[0].toUpperCase():'—';
+    return'<tr>'
+    +'<td><strong>'+w.user_name+'</strong></td>'
+    +'<td style="font-family:monospace;color:#f0c96a;font-size:0.72rem">#'+uid8+'</td>'
+    +'<td style="font-size:0.72rem;color:#8a7a5a">'+(u.email||'—')+'</td>'
+    +'<td style="color:#f0c96a;font-weight:700">$'+w.amount+'</td>'
+    +'<td style="color:#22c55e">$'+(w.amount*(1-C.fee/100)).toFixed(2)+'</td>'
+    +'<td style="font-size:0.65rem;font-family:monospace;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+w.wallet+'">'+w.wallet+'</td>'
+    +'<td>'+fd(w.created_at)+'</td>'
+    +'<td>'+(w.status==='pending'
+      ?'<div style="display:flex;gap:0.3rem;flex-wrap:wrap"><button class="btn bg-green btn-sm" onclick="appW(\''+w.id+'\')">✅ موافقة</button><button class="btn bg-red btn-sm" onclick="rejW(\''+w.id+'\',\''+w.user_id+'\','+w.amount+')">❌ رفض</button></div>'
+      :'<span class="badge '+(w.status==='approved'?'b-g':'b-r')+'">'+(w.status==='approved'?'✅ مقبول':'❌ مرفوض')+'</span>')
+    +'</td></tr>';
+  }).join('');
 }
 
-async function appW(id){await DB.from('withdrawals').update({status:'approved'}).eq('id',id);loadW();tst('ok','تم القبول','');}
-async function rejW(id,uid,amt){await DB.from('withdrawals').update({status:'rejected'}).eq('id',id);var u=await DB.from('users').select('profit_bal').eq('id',uid).single();await DB.from('users').update({profit_bal:(u.data?.profit_bal||0)+amt}).eq('id',uid);loadW();tst('err','تم الرفض','تم إرجاع المبلغ');}
+async function appW(id){
+  if(!confirm('تأكيد الموافقة على السحب؟'))return;
+  var wr=await DB.from('withdrawals').select('*').eq('id',id).single();
+  if(!wr.data)return;
+  var amt=wr.data.amount;
+  var uid=wr.data.user_id;
+  // خصم المبلغ من الرصيد الكلي
+  var u=await DB.from('users').select('balance').eq('id',uid).single();
+  var newBal=parseFloat(((u.data?.balance||0)-amt).toFixed(2));
+  if(newBal<0)newBal=0;
+  await DB.from('users').update({balance:newBal}).eq('id',uid);
+  await DB.from('withdrawals').update({status:'approved'}).eq('id',id);
+  await DB.from('transactions').update({status:'مكتمل'}).eq('user_id',uid).eq('type','سحب').eq('status','معلق');
+  loadW();tst('ok','✅ تمت الموافقة','تم خصم $'+amt+' من رصيد المستخدم');
+}
+async function rejW(id,uid,amt){
+  if(!confirm('تأكيد رفض السحب؟ سيتم إرجاع المبلغ للمستخدم.'))return;
+  await DB.from('withdrawals').update({status:'rejected'}).eq('id',id);
+  var u=await DB.from('users').select('profit_bal').eq('id',uid).single();
+  await DB.from('users').update({profit_bal:parseFloat(((u.data?.profit_bal||0)+amt).toFixed(2))}).eq('id',uid);
+  await DB.from('transactions').insert([{user_id:uid,type:'إرجاع سحب مرفوض',amount:amt,network:'—',status:'مكتمل',created_at:new Date().toISOString()}]);
+  loadW();tst('err','❌ تم الرفض','تم إرجاع $'+amt+' لرصيد المستخدم');
+}
 
 async function loadK(){
   var r=await DB.from('users').select('*').eq('kyc_status','pending');var users=r.data||[];var el=document.getElementById('adm-kl');
