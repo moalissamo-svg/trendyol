@@ -603,12 +603,13 @@ select option{background:#162640;color:#e2d5b8;}
 </div>
 <div class="ov" id="m-wd">
   <div class="modal"><button class="mc" onclick="closeM('m-wd')">✕</button>
-    <div class="mt-m">💸 سحب الأرباح</div>
+    <div class="mt-m">💸 سحب الرصيد</div>
     <div class="ibox"><strong>الرصيد المتاح للسحب</strong><span style="font-size:1.2rem;font-weight:900;color:#f0c96a" id="wd-av">$0</span></div>
     <div class="fld"><label>المبلغ المطلوب سحبه</label><input type="number" id="wd-am" placeholder="الحد الأدنى $50" oninput="calcF()"></div>
     <div class="fld"><label>عنوان محفظتك (TRC-20 أو ERC-20)</label><input id="wd-wl" placeholder="أدخل عنوان محفظتك"></div>
-    <div class="ibox"><strong>رسوم السحب 6%</strong>ستستلم: <span id="wd-af" style="color:#f0c96a;font-weight:700">$0.00</span></div>
-    <button class="btn bg-gold btn-full mt1" onclick="subWd()">📤 تقديم طلب السحب</button>
+    <div class="ibox"><strong>رسوم السحب 6%</strong> — ستستلم: <span id="wd-af" style="color:#f0c96a;font-weight:700">$0.00</span></div>
+    <div class="ibox" style="font-size:0.75rem;color:#8a7a5a">⚠️ الحد الأدنى للسحب $50 — سيتم معالجة طلبك خلال 24 ساعة</div>
+    <button class="btn bg-gold btn-full mt1" onclick="subWd()">📤 تأكيد طلب السحب</button>
   </div>
 </div>
 <div class="ov" id="m-sup">
@@ -774,7 +775,7 @@ async function renderAll(){
     await DB.from('users').update({ref_code:newRc}).eq('id',ME.id);
     ME.ref_code=newRc;
   }
-  document.getElementById('wd-av').textContent='$'+((ME.profit_bal||0)+(ME.balance||0)).toFixed(2);
+  document.getElementById('wd-av').textContent='$'+(ME.profit_bal||0).toFixed(2);
   document.getElementById('ref-lnk').textContent=location.origin+location.pathname+'?ref='+ME.ref_code;
   var rc=document.getElementById('my-rcode');if(rc)rc.textContent=ME.ref_code;
   rCards();
@@ -939,20 +940,21 @@ function calcF(){var a=parseFloat(document.getElementById('wd-am').value)||0;doc
 async function subWd(){
   if(!ME)return;
   var amt=parseFloat(document.getElementById('wd-am').value),wl=document.getElementById('wd-wl').value.trim();
-  if(!amt||amt<C.mw){tst('err','خطأ','الحد الأدنى $'+C.mw);return;}
-  var totalBal=parseFloat(((ME.balance||0)+(ME.profit_bal||0)).toFixed(2));
-  if(amt>totalBal){tst('err','رصيد غير كافٍ','رصيدك الكلي: $'+totalBal.toFixed(2));return;}
+  if(!amt||isNaN(amt)){tst('err','خطأ','أدخل المبلغ المطلوب سحبه');return;}
+  if(amt<C.mw){tst('err','أقل من الحد الأدنى ❌','الحد الأدنى للسحب $'+C.mw);return;}
+  var pr=parseFloat((ME.profit_bal||0).toFixed(2));
+  if(pr<C.mw){tst('err','رصيد أرباح غير كافٍ ❌','رصيد أرباحك $'+pr.toFixed(2)+' — الحد الأدنى $'+C.mw);return;}
+  if(amt>pr){tst('err','رصيد غير كافٍ ❌','رصيد أرباحك المتاح: $'+pr.toFixed(2));return;}
   if(!wl){tst('err','خطأ','أدخل عنوان محفظتك');return;}
-  // الخصم: أولاً من profit_bal ثم من balance
-  var pr=ME.profit_bal||0;
-  var ba=ME.balance||0;
-  var newPr,newBa;
-  if(amt<=pr){newPr=parseFloat((pr-amt).toFixed(2));newBa=ba;}
-  else{newPr=0;newBa=parseFloat((ba-(amt-pr)).toFixed(2));}
-  await DB.from('users').update({balance:newBa,profit_bal:newPr}).eq('id',ME.id);
+  var newPr=parseFloat((pr-amt).toFixed(2));
+  await DB.from('users').update({profit_bal:newPr}).eq('id',ME.id);
   await DB.from('withdrawals').insert([{user_id:ME.id,user_name:ME.name,amount:amt,wallet:wl,status:'pending',created_at:new Date().toISOString()}]);
   await DB.from('transactions').insert([{user_id:ME.id,type:'سحب',amount:amt,network:'—',status:'معلق',created_at:new Date().toISOString()}]);
-  closeM('m-wd');tst('ok','طلب سحب مُرسل','في انتظار موافقة الإدارة');renderAll();
+  closeM('m-wd');
+  document.getElementById('wd-am').value='';
+  document.getElementById('wd-wl').value='';
+  tst('ok','✅ طلب سحب مُرسل','في انتظار موافقة الإدارة');
+  renderAll();
 }
 
 // ADMIN
