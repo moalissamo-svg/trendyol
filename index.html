@@ -2,8 +2,17 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>ترنديول - منصة الاستثمار</title>
+<meta name="description" content="منصة ترنديول للاستثمار">
+<meta name="theme-color" content="#0d1e38">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trendyol">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -1341,6 +1350,7 @@ function fd(iso){if(!iso)return'—';return new Date(iso).toLocaleString('ar',{d
 function sb(s){if(s==='مكتمل'||s==='مؤكد'||s==='approved')return'b-g';if(s==='مرفوض'||s==='rejected')return'b-r';return'b-y';}
 
 window.addEventListener('DOMContentLoaded',init);
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
 </script>
 </body>
 </html>
